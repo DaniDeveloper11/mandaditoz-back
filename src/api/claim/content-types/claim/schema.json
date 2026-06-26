@@ -1,0 +1,72 @@
+{
+  "kind": "collectionType",
+  "collectionName": "claims",
+  "info": {
+    "singularName": "claim",
+    "pluralName": "claims",
+    "displayName": "Claim",
+    "description": "Reclamación de un negocio por su dueño"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "business": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::business.business",
+      "inversedBy": "claims"
+    },
+    "user": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "claims"
+    },
+    "claimantName": {
+      "type": "string",
+      "required": true,
+      "maxLength": 120
+    },
+    "claimantRole": {
+      "type": "enumeration",
+      "enum": ["owner", "manager", "employee", "other"],
+      "default": "owner",
+      "required": true
+    },
+    "claimantPhone": {
+      "type": "string",
+      "required": true,
+      "regex": "^[+]?[0-9\\s\\-()]{3,20}$"
+    },
+    "proof": {
+      "type": "media",
+      "multiple": true,
+      "required": false,
+      "allowedTypes": ["images", "files"]
+    },
+    "notes": {
+      "type": "text",
+      "maxLength": 1000
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": ["pending", "approved", "rejected", "cancelled"],
+      "default": "pending",
+      "required": true
+    },
+    "reviewedBy": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    },
+    "reviewedAt": {
+      "type": "datetime"
+    },
+    "rejectionReason": {
+      "type": "text",
+      "maxLength": 500
+    }
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "kind": "collectionType",
+  "collectionName": "reviews",
+  "info": {
+    "singularName": "review",
+    "pluralName": "reviews",
+    "displayName": "Review",
+    "description": "Reseñas y calificaciones de usuarios sobre negocios"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "business": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::business.business",
+      "inversedBy": "reviews"
+    },
+    "author": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "reviews"
+    },
+    "rating": {
+      "type": "integer",
+      "required": true,
+      "min": 1,
+      "max": 5
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "comment": {
+      "type": "text",
+      "required": true,
+      "minLength": 10,
+      "maxLength": 1500
+    },
+    "visitDate": {
+      "type": "date"
+    },
+    "response": {
+      "type": "component",
+      "repeatable": false,
+      "component": "business.response"
+    },
+    "helpfulCount": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": ["published", "pending", "hidden", "removed"],
+      "default": "published",
+      "required": true
+    },
+    "isReported": {
+      "type": "boolean",
+      "default": false
+    },
+    "reportCount": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
+    },
+    "photos": {
+      "type": "media",
+      "multiple": true,
+      "required": false,
+      "allowedTypes": ["images"]
+    }
+  }
+}

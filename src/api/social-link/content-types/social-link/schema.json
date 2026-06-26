@@ -1,0 +1,32 @@
+{
+  "kind": "collectionType",
+  "collectionName": "social_links",
+  "info": {
+    "singularName": "social-link",
+    "pluralName": "social-links",
+    "displayName": "SocialLink",
+    "description": "Enlace a red social de un negocio"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "business": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::business.business",
+      "inversedBy": "socialLinks"
+    },
+    "platform": {
+      "type": "enumeration",
+      "enum": ["facebook", "instagram", "tiktok", "twitter", "youtube", "linkedin"],
+      "required": true
+    },
+    "url": {
+      "type": "string",
+      "required": true,
+      "regex": "^https?:\\/\\/.+$"
+    }
+  }
+}

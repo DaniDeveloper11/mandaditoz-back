@@ -1,0 +1,58 @@
+{
+  "kind": "collectionType",
+  "collectionName": "reports",
+  "info": {
+    "singularName": "report",
+    "pluralName": "reports",
+    "displayName": "Report",
+    "description": "Reporte de contenido abusivo (negocio, reseña o foto)"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "targetType": {
+      "type": "enumeration",
+      "enum": ["business", "review", "photo"],
+      "required": true
+    },
+    "targetId": {
+      "type": "integer",
+      "required": true
+    },
+    "reportedBy": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "reports"
+    },
+    "reason": {
+      "type": "enumeration",
+      "enum": ["spam", "offensive", "fake", "inappropriate", "other"],
+      "required": true
+    },
+    "details": {
+      "type": "text",
+      "maxLength": 1000
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": ["pending", "reviewed", "actioned", "dismissed"],
+      "default": "pending",
+      "required": true
+    },
+    "reviewedBy": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user"
+    },
+    "reviewedAt": {
+      "type": "datetime"
+    },
+    "resolution": {
+      "type": "text",
+      "maxLength": 500
+    }
+  }
+}

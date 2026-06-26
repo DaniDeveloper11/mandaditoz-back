@@ -1,0 +1,82 @@
+{
+  "collectionName": "components_shared_addresses",
+  "info": {
+    "displayName": "Address",
+    "icon": "map-marker",
+    "description": "Dirección física de un negocio (México)"
+  },
+  "options": {},
+  "attributes": {
+    "street": {
+      "type": "string",
+      "required": true,
+      "maxLength": 200
+    },
+    "exteriorNumber": {
+      "type": "string",
+      "required": true,
+      "maxLength": 20
+    },
+    "interiorNumber": {
+      "type": "string",
+      "maxLength": 20
+    },
+    "neighborhood": {
+      "type": "string",
+      "maxLength": 120,
+      "description": "Colonia / fraccionamiento"
+    },
+    "city": {
+      "type": "string",
+      "required": true,
+      "maxLength": 120
+    },
+    "state": {
+      "type": "enumeration",
+      "required": true,
+      "enum": [
+        "Aguascalientes",
+        "Baja California",
+        "Baja California Sur",
+        "Campeche",
+        "Chiapas",
+        "Chihuahua",
+        "Ciudad de México",
+        "Coahuila",
+        "Colima",
+        "Durango",
+        "Estado de México",
+        "Guanajuato",
+        "Guerrero",
+        "Hidalgo",
+        "Jalisco",
+        "Michoacán",
+        "Morelos",
+        "Nayarit",
+        "Nuevo León",
+        "Oaxaca",
+        "Puebla",
+        "Querétaro",
+        "Quintana Roo",
+        "San Luis Potosí",
+        "Sinaloa",
+        "Sonora",
+        "Tabasco",
+        "Tamaulipas",
+        "Tlaxcala",
+        "Veracruz",
+        "Yucatán",
+        "Zacatecas"
+      ]
+    },
+    "zip": {
+      "type": "string",
+      "regex": "^[0-9]{5}$"
+    },
+    "references": {
+      "type": "text",
+      "maxLength": 300,
+      "description": "Referencias para ubicar (ej. 'entre calle X y Y')"
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "collectionName": "components_business_responses",
+  "info": {
+    "displayName": "Response",
+    "icon": "comment",
+    "description": "Respuesta del dueño del negocio a una reseña"
+  },
+  "options": {},
+  "attributes": {
+    "text": {
+      "type": "text",
+      "required": true,
+      "minLength": 1,
+      "maxLength": 1000
+    },
+    "respondedAt": {
+      "type": "datetime"
+    },
+    "respondedBy": {
+      "type": "relation",
+      "relation": "oneToOne",
+      "target": "plugin::users-permissions.user"
+    }
+  }
+}

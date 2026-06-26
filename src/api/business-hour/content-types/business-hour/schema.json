@@ -1,0 +1,41 @@
+{
+  "kind": "collectionType",
+  "collectionName": "business_hours",
+  "info": {
+    "singularName": "business-hour",
+    "pluralName": "business-hours",
+    "displayName": "BusinessHour",
+    "description": "Horario de atención por día de un negocio"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "business": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::business.business",
+      "inversedBy": "hours"
+    },
+    "dayOfWeek": {
+      "type": "enumeration",
+      "enum": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+      "required": true
+    },
+    "openTime": {
+      "type": "time"
+    },
+    "closeTime": {
+      "type": "time"
+    },
+    "isClosed": {
+      "type": "boolean",
+      "default": false
+    },
+    "is24Hours": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

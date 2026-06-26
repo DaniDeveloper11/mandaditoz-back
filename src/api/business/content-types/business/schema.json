@@ -1,0 +1,177 @@
+{
+  "kind": "collectionType",
+  "collectionName": "businesses",
+  "info": {
+    "singularName": "business",
+    "pluralName": "businesses",
+    "displayName": "Business",
+    "description": "Negocios del directorio"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "minLength": 2,
+      "maxLength": 120
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "name",
+      "required": true
+    },
+    "shortDescription": {
+      "type": "string",
+      "maxLength": 160
+    },
+    "description": {
+      "type": "richtext",
+      "maxLength": 3000
+    },
+    "category": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::category.category",
+      "inversedBy": "businesses"
+    },
+    "secondaryCategories": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::category.category",
+      "inversedBy": "secondaryBusinesses"
+    },
+    "tags": {
+      "type": "json",
+      "description": "Array de strings, max 10"
+    },
+    "phone": {
+      "type": "string",
+      "regex": "^[+]?[0-9\\s\\-()]{3,20}$"
+    },
+    "whatsapp": {
+      "type": "string",
+      "regex": "^[+]?[0-9\\s\\-()]{3,20}$"
+    },
+    "email": {
+      "type": "email"
+    },
+    "website": {
+      "type": "string",
+      "regex": "^https?:\\/\\/.+$"
+    },
+    "address": {
+      "type": "component",
+      "repeatable": false,
+      "component": "shared.address"
+    },
+    "lat": {
+      "type": "decimal",
+      "min": -90,
+      "max": 90
+    },
+    "lng": {
+      "type": "decimal",
+      "min": -180,
+      "max": 180
+    },
+    "status": {
+      "type": "enumeration",
+      "enum": ["draft", "published", "pending_review", "suspended"],
+      "default": "draft",
+      "required": true
+    },
+    "ownershipStatus": {
+      "type": "enumeration",
+      "enum": ["unclaimed", "pending_claim", "claimed"],
+      "default": "unclaimed",
+      "required": true
+    },
+    "owner": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "ownedBusinesses"
+    },
+    "createdByAdmin": {
+      "type": "boolean",
+      "default": false
+    },
+    "isVerified": {
+      "type": "boolean",
+      "default": false
+    },
+    "isFeatured": {
+      "type": "boolean",
+      "default": false
+    },
+    "featuredUntil": {
+      "type": "datetime"
+    },
+    "viewCount": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
+    },
+    "ratingAverage": {
+      "type": "decimal",
+      "default": 0,
+      "min": 0,
+      "max": 5
+    },
+    "ratingCount": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
+    },
+    "seo": {
+      "type": "component",
+      "repeatable": false,
+      "component": "shared.seo"
+    },
+    "logo": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["images"]
+    },
+    "coverPhoto": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["images"]
+    },
+    "hours": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::business-hour.business-hour",
+      "mappedBy": "business"
+    },
+    "photos": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::photo.photo",
+      "mappedBy": "business"
+    },
+    "reviews": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::review.review",
+      "mappedBy": "business"
+    },
+    "socialLinks": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::social-link.social-link",
+      "mappedBy": "business"
+    },
+    "claims": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::claim.claim",
+      "mappedBy": "business"
+    }
+  }
+}
