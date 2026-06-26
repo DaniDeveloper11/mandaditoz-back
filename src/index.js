@@ -9,28 +9,32 @@ const PUBLIC_PERMISSIONS = {
   'api::social-link.social-link': ['find', 'findOne'],
 };
 
-async function setPublicPermissions(strapi) {
-  const publicRole = await strapi
-    .query('plugin::users-permissions.role')
-    .findOne({ where: { type: 'public' } });
+const AUTHENTICATED_PERMISSIONS = {
+  'plugin::users-permissions.user': ['updateMe'],
+};
 
-  if (!publicRole) {
-    strapi.log.warn('[bootstrap] Public role not found, skipping permissions setup');
+async function setRolePermissions(strapi, roleType, permissions) {
+  const role = await strapi
+    .query('plugin::users-permissions.role')
+    .findOne({ where: { type: roleType } });
+
+  if (!role) {
+    strapi.log.warn(`[bootstrap] Role "${roleType}" not found, skipping`);
     return;
   }
 
-  for (const [uid, actions] of Object.entries(PUBLIC_PERMISSIONS)) {
+  for (const [uid, actions] of Object.entries(permissions)) {
     for (const action of actions) {
       const permAction = `${uid}.${action}`;
       const existing = await strapi
         .query('plugin::users-permissions.permission')
-        .findOne({ where: { action: permAction, role: publicRole.id } });
+        .findOne({ where: { action: permAction, role: role.id } });
 
       if (!existing) {
         await strapi.query('plugin::users-permissions.permission').create({
-          data: { action: permAction, role: publicRole.id },
+          data: { action: permAction, role: role.id },
         });
-        strapi.log.info(`[bootstrap] granted public: ${permAction}`);
+        strapi.log.info(`[bootstrap] granted ${roleType}: ${permAction}`);
       }
     }
   }
@@ -40,6 +44,7 @@ module.exports = {
   register(/* { strapi } */) {},
 
   async bootstrap({ strapi }) {
-    await setPublicPermissions(strapi);
+    await setRolePermissions(strapi, 'public', PUBLIC_PERMISSIONS);
+    await setRolePermissions(strapi, 'authenticated', AUTHENTICATED_PERMISSIONS);
   },
 };

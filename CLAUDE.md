@@ -110,6 +110,24 @@ El método `create` está sobrescrito para inyectar `owner: ctx.state.user.id` a
 
 ---
 
+## Rol BusinessOwner
+Rol personalizado creado manualmente en el panel: **Settings → Users & Permissions → Roles → BusinessOwner**
+
+Permisos del rol:
+- `business`: create, update, delete, find, findOne
+- `business-hour`: create, update, delete, find, findOne
+- `photo`: create, update, delete, find, findOne
+- `social-link`: create, update, delete, find, findOne
+- `claim`: create, find, findOne
+- `review`: find, findOne
+
+### Asignación automática del rol
+Archivo: `src/api/claim/content-types/claim/lifecycles.js`
+
+Lifecycle hook `afterUpdate` en el modelo `claim`:
+- Se dispara cuando el admin cambia `status` a `approved`
+- Asigna el rol `BusinessOwner` al usuario del claim
+- Actualiza el negocio: `owner = user`, `ownershipStatus = "claimed"`
+
 ## Pendiente
-- Habilitar permiso `create` en `business` para el rol `Authenticated` (o un rol `BusinessOwner`) en el panel de Strapi o en `src/index.js`.
-- Considerar crear rol `BusinessOwner` que se asigna al usuario cuando se aprueba su `claim`.
+- Habilitar permiso `create` en `business` para el rol `BusinessOwner` en el panel de Strapi (Settings → Roles → BusinessOwner → Business → create).
