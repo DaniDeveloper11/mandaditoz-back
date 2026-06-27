@@ -129,5 +129,113 @@ Lifecycle hook `afterUpdate` en el modelo `claim`:
 - Asigna el rol `BusinessOwner` al usuario del claim
 - Actualiza el negocio: `owner = user`, `ownershipStatus = "claimed"`
 
+---
+
+## Extensiones del plugin users-permissions
+Archivo: `src/extensions/users-permissions/strapi-server.js`
+
+### Endpoints personalizados agregados
+
+**`POST /api/auth/register-owner`** — Registro con rol BusinessOwner
+- Público (`auth: false`)
+- Crea el usuario con `confirmed: false` y rol `BusinessOwner`
+- Envía email de confirmación automáticamente via `userService.sendConfirmationEmail()`
+- No devuelve JWT — el usuario debe confirmar email antes de poder hacer login
+- Handler: `plugin.controllers.user.registerOwner`
+
+**`PUT /api/users/me`** — Actualizar perfil propio
+- Requiere JWT
+- Solo permite actualizar: `displayName`, `phone`, `bio`, `avatar`
+- Campos sensibles (`password`, `role`, `confirmed`, `blocked`) bloqueados
+- Handler: `plugin.controllers.user.updateMe`
+
+> En Strapi 5 el controller `auth` del plugin NO es extensible directamente.
+> Todos los handlers personalizados deben agregarse a `plugin.controllers.user`.
+
+---
+
+## Email (Gmail SMTP)
+Paquete instalado: `@strapi/provider-email-nodemailer`
+Configuración: `config/plugins.js`
+Credenciales en `.env`: `SMTP_USER`, `SMTP_PASS`
+
+- `SMTP_PASS` es un **App Password de Google** (16 caracteres), NO la contraseña de Gmail
+- Se genera en: Google Account → Security → 2-Step Verification → App Passwords
+
+### Flujos de email automáticos (requieren "Enable email confirmation" en el panel)
+| Acción | Email enviado |
+|--------|--------------|
+| `POST /api/auth/local/register` | Confirmación de cuenta |
+| `POST /api/auth/register-owner` | Confirmación de cuenta |
+| `POST /api/auth/forgot-password` | Reset de contraseña |
+
+Habilitar en panel: **Settings → Users & Permissions → Advanced Settings → Enable email confirmation**
+
+---
+
+## Permisos del rol Authenticated (bootstrap automático)
+Configurados en `src/index.js` via `setRolePermissions`:
+- `plugin::users-permissions.user`: `updateMe`
+
+---
+
+---
+
+## Reglas críticas para crear usuarios programáticamente en Strapi 5
+
+Estas reglas se descubrieron depurando el endpoint `register-owner`. Violarlas rompe el login.
+
+### 1. NO pre-hashear la contraseña
+El Document Service (`strapi.documents().create()`) hashea automáticamente los campos de tipo `password` usando `bcrypt.hashSync()`.
+Código fuente: `@strapi/core/dist/services/document-service/attributes/transforms.js`
+
+```js
+// ✅ Correcto — Document Service hashea solo
+userService.add({ password: 'plaintext' });
+
+// ❌ Incorrecto — causa doble hash, login siempre falla
+const hashed = await userService.hashPassword({ password });
+userService.add({ password: hashed });
+```
+
+### 2. Siempre incluir `provider: 'local'`
+El login filtra con `WHERE provider = 'local'`. Sin este campo el usuario no se encuentra.
+
+```js
+// ✅ Correcto
+userService.add({ provider: 'local', ... });
+```
+
+### 3. Siempre lowercase el email
+El login busca con `email.toLowerCase()`. Guardar el email con mayúsculas impide encontrarlo en PostgreSQL.
+
+```js
+// ✅ Correcto
+userService.add({ email: email.toLowerCase(), ... });
+```
+
+### 4. `userService.add()` usa el Document Service internamente
+```js
+// Strapi 5 — fuente: plugin-users-permissions/server/services/user.js
+async add(values) {
+  return strapi.documents(USER_MODEL_UID).create({ data: values, populate: ['role'] });
+}
+```
+
+### 5. Orden de validaciones en el login (`POST /api/auth/local`)
+```
+1. Usuario no encontrado por provider+email/username → "Invalid identifier or password"
+2. Usuario sin password en DB                        → "Invalid identifier or password"
+3. Password no coincide (bcrypt.compare falla)       → "Invalid identifier or password"
+4. confirmed=false y email_confirmation habilitado   → "Your account email is not confirmed"
+```
+Si el error es "Invalid identifier or password", el problema es 1, 2 o 3 — NO confirmación de email.
+
+### 6. `strapi.db.query()` sí retorna el campo `password`
+Aunque `password` es `private: true`, la capa de DB devuelve todos los campos incluyendo el hash.
+
+---
+
 ## Pendiente
 - Habilitar permiso `create` en `business` para el rol `BusinessOwner` en el panel de Strapi (Settings → Roles → BusinessOwner → Business → create).
+- Verificar que `hasPassword=true` en logs de `register-owner` para confirmar que el password se almacena correctamente.

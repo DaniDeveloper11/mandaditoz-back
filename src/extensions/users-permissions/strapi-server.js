@@ -27,24 +27,33 @@ module.exports = (plugin) => {
     }
 
     const userService = strapi.plugin('users-permissions').service('user');
-    const jwtService = strapi.plugin('users-permissions').service('jwt');
 
     const newUser = await userService.add({
       username,
-      email,
+      email: email.toLowerCase(),
       password,
+      provider: 'local',
       displayName: displayName || null,
       phone: phone || null,
-      confirmed: true,
+      confirmed: false,
       blocked: false,
       role: businessOwnerRole.id,
     });
 
-    const jwt = jwtService.issue({ id: newUser.id });
+    strapi.log.info(`[register-owner] usuario creado: id=${newUser.id} email=${newUser.email} provider=${newUser.provider} confirmed=${newUser.confirmed}`);
 
-    const { password: _p, resetPasswordToken: _r, confirmationToken: _c, ...safeUser } = newUser;
+    const dbUser = await strapi.db.query('plugin::users-permissions.user').findOne({ where: { id: newUser.id } });
+    strapi.log.info(`[register-owner] DB check: hasPassword=${!!dbUser.password} provider=${dbUser.provider} confirmed=${dbUser.confirmed}`);
 
-    return ctx.send({ jwt, user: safeUser });
+    try {
+      await userService.sendConfirmationEmail(newUser);
+    } catch (err) {
+      strapi.log.error(`[register-owner] error enviando email de confirmacion: ${err.message}`);
+    }
+
+    return ctx.send({
+      message: 'Registro exitoso. Revisa tu correo para confirmar tu cuenta.',
+    });
   };
 
   plugin.routes['content-api'].routes.push({
