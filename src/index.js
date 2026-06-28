@@ -11,6 +11,7 @@ const PUBLIC_PERMISSIONS = {
 
 const AUTHENTICATED_PERMISSIONS = {
   'plugin::users-permissions.user': ['updateMe'],
+  'api::claim.claim': ['create', 'find', 'findOne'],
 };
 
 async function setRolePermissions(strapi, roleType, permissions) {

@@ -684,6 +684,11 @@ export interface ApiClaimClaim extends Struct.CollectionTypeSchema {
     > &
       Schema.Attribute.Required &
       Schema.Attribute.DefaultTo<'owner'>;
+    claimStatus: Schema.Attribute.Enumeration<
+      ['pending', 'approved', 'rejected', 'cancelled']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'pending'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -701,15 +706,7 @@ export interface ApiClaimClaim extends Struct.CollectionTypeSchema {
         maxLength: 500;
       }>;
     reviewedAt: Schema.Attribute.DateTime;
-    reviewedBy: Schema.Attribute.Relation<
-      'manyToOne',
-      'plugin::users-permissions.user'
-    >;
-    status: Schema.Attribute.Enumeration<
-      ['pending', 'approved', 'rejected', 'cancelled']
-    > &
-      Schema.Attribute.Required &
-      Schema.Attribute.DefaultTo<'pending'>;
+    reviewedBy: Schema.Attribute.Relation<'manyToOne', 'admin::user'>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;

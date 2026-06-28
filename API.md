@@ -572,10 +572,18 @@ Solicita la propiedad de un negocio. 🔒 Requiere JWT.
 }
 ```
 
+> Al crear el claim, el sistema automáticamente cambia `ownershipStatus` del negocio a `"pending_claim"`.
+
 > Cuando el admin aprueba el claim (`status: approved`), el sistema automáticamente:
 > - Asigna el rol `BusinessOwner` al usuario
 > - Vincula al usuario como `owner` del negocio
-> - Cambia `ownershipStatus` a `claimed`
+> - Cambia `ownershipStatus` a `"claimed"`
+
+**Errores:**
+| Código | Motivo |
+|--------|--------|
+| `401` | No autenticado |
+| `404` | Negocio no encontrado |
 
 ---
 

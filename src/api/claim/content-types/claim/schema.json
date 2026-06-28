@@ -50,7 +50,7 @@
       "type": "text",
       "maxLength": 1000
     },
-    "status": {
+    "claimStatus": {
       "type": "enumeration",
       "enum": ["pending", "approved", "rejected", "cancelled"],
       "default": "pending",
@@ -59,7 +59,7 @@
     "reviewedBy": {
       "type": "relation",
       "relation": "manyToOne",
-      "target": "plugin::users-permissions.user"
+      "target": "admin::user"
     },
     "reviewedAt": {
       "type": "datetime"

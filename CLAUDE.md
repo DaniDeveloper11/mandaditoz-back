@@ -121,13 +121,24 @@ Permisos del rol:
 - `claim`: create, find, findOne
 - `review`: find, findOne
 
-### Asignación automática del rol
+### Lifecycle hooks del modelo `claim`
 Archivo: `src/api/claim/content-types/claim/lifecycles.js`
 
-Lifecycle hook `afterUpdate` en el modelo `claim`:
-- Se dispara cuando el admin cambia `status` a `approved`
+**`afterCreate`** — Se dispara cuando el usuario envía un claim (`POST /api/claims`):
+- Hace `findOne` del claim con `business` populado (el `result` no incluye relaciones)
+- Actualiza el negocio: `ownershipStatus = "pending_claim"`
+
+**`beforeUpdate`** — Se dispara antes de guardar el claim:
+- Si `claimStatus` cambia a `approved`, `rejected` o `cancelled`, asigna `reviewedAt = now` automáticamente
+
+**`afterUpdate`** — Se dispara cuando el admin cambia `claimStatus` a `approved`:
+- Hace `findOne` del claim con `user` y `business` populados
 - Asigna el rol `BusinessOwner` al usuario del claim
 - Actualiza el negocio: `owner = user`, `ownershipStatus = "claimed"`
+
+> Nota: si el claim es rechazado (`claimStatus: "rejected"`) o cancelado, el negocio **no** revierte automáticamente a `"unclaimed"` — pendiente de implementar.
+
+> Nota: el campo se llama `claimStatus` (no `status`) porque `status` es un nombre reservado en Strapi 5 para el sistema draft/publish del Document Service.
 
 ---
 
