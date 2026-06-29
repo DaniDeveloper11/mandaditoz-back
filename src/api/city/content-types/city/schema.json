@@ -1,0 +1,66 @@
+{
+  "kind": "collectionType",
+  "collectionName": "cities",
+  "info": {
+    "singularName": "city",
+    "pluralName": "cities",
+    "displayName": "City",
+    "description": "Ciudad / municipio dentro de un estado"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "minLength": 2,
+      "maxLength": 120
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "name",
+      "required": true
+    },
+    "state": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::state.state",
+      "inversedBy": "cities"
+    },
+    "center": {
+      "type": "component",
+      "repeatable": false,
+      "component": "shared.geo",
+      "description": "Punto central de la ciudad para búsquedas por radio"
+    },
+    "boundingRadiusKm": {
+      "type": "decimal",
+      "default": 20,
+      "min": 0,
+      "description": "Radio aproximado de cobertura en km"
+    },
+    "isActive": {
+      "type": "boolean",
+      "default": true
+    },
+    "neighborhoods": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::neighborhood.neighborhood",
+      "mappedBy": "city"
+    },
+    "businesses": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::business.business",
+      "mappedBy": "city"
+    },
+    "businessCount": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
+    }
+  }
+}

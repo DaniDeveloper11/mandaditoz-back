@@ -1,0 +1,48 @@
+{
+  "kind": "collectionType",
+  "collectionName": "states",
+  "info": {
+    "singularName": "state",
+    "pluralName": "states",
+    "displayName": "State",
+    "description": "Estado / provincia (México)"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "minLength": 2,
+      "maxLength": 80
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "name",
+      "required": true
+    },
+    "code": {
+      "type": "string",
+      "maxLength": 5,
+      "description": "Código ISO/interno (ej. JAL)"
+    },
+    "country": {
+      "type": "string",
+      "maxLength": 5,
+      "default": "MX"
+    },
+    "isActive": {
+      "type": "boolean",
+      "default": true
+    },
+    "cities": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::city.city",
+      "mappedBy": "state"
+    }
+  }
+}

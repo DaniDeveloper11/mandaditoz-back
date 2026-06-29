@@ -440,11 +440,52 @@ export interface AdminUser extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiBusinessHourExceptionBusinessHourException
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'business_hour_exceptions';
+  info: {
+    description: 'Excepci\u00F3n puntual al horario regular (festivos, cierre por vacaciones, apertura especial)';
+    displayName: 'BusinessHourException';
+    pluralName: 'business-hour-exceptions';
+    singularName: 'business-hour-exception';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    business: Schema.Attribute.Relation<'manyToOne', 'api::business.business'> &
+      Schema.Attribute.Required;
+    closeTime: Schema.Attribute.Time;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    crossesMidnight: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
+    date: Schema.Attribute.Date & Schema.Attribute.Required;
+    isClosed: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::business-hour-exception.business-hour-exception'
+    > &
+      Schema.Attribute.Private;
+    openTime: Schema.Attribute.Time;
+    publishedAt: Schema.Attribute.DateTime;
+    reason: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 200;
+      }>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiBusinessHourBusinessHour
   extends Struct.CollectionTypeSchema {
   collectionName: 'business_hours';
   info: {
-    description: 'Horario de atenci\u00F3n por d\u00EDa de un negocio';
+    description: 'Horario de atenci\u00F3n por d\u00EDa de un negocio. Permite m\u00FAltiples filas por (business, dayOfWeek) para horarios partidos (siesta, doble turno).';
     displayName: 'BusinessHour';
     pluralName: 'business-hours';
     singularName: 'business-hour';
@@ -453,11 +494,14 @@ export interface ApiBusinessHourBusinessHour
     draftAndPublish: false;
   };
   attributes: {
-    business: Schema.Attribute.Relation<'manyToOne', 'api::business.business'>;
+    business: Schema.Attribute.Relation<'manyToOne', 'api::business.business'> &
+      Schema.Attribute.Required;
     closeTime: Schema.Attribute.Time;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    crossesMidnight: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
     dayOfWeek: Schema.Attribute.Enumeration<
       ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
     > &
@@ -470,8 +514,13 @@ export interface ApiBusinessHourBusinessHour
       'api::business-hour.business-hour'
     > &
       Schema.Attribute.Private;
+    note: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 100;
+      }>;
     openTime: Schema.Attribute.Time;
     publishedAt: Schema.Attribute.DateTime;
+    sortOrder: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -487,13 +536,22 @@ export interface ApiBusinessBusiness extends Struct.CollectionTypeSchema {
     singularName: 'business';
   };
   options: {
-    draftAndPublish: true;
+    draftAndPublish: false;
   };
   attributes: {
     address: Schema.Attribute.Component<'shared.address', false>;
+    amenities: Schema.Attribute.JSON;
+    archivedAt: Schema.Attribute.DateTime;
+    businessStatus: Schema.Attribute.Enumeration<
+      ['draft', 'published', 'pending_review', 'suspended']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'draft'>;
     category: Schema.Attribute.Relation<'manyToOne', 'api::category.category'>;
+    city: Schema.Attribute.Relation<'manyToOne', 'api::city.city'>;
     claims: Schema.Attribute.Relation<'oneToMany', 'api::claim.claim'>;
     coverPhoto: Schema.Attribute.Media<'images'>;
+    coverPhotoUrl: Schema.Attribute.Text;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -505,28 +563,21 @@ export interface ApiBusinessBusiness extends Struct.CollectionTypeSchema {
       }>;
     email: Schema.Attribute.Email;
     featuredUntil: Schema.Attribute.DateTime;
+    geo: Schema.Attribute.Component<'shared.geo', false>;
+    hourExceptions: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::business-hour-exception.business-hour-exception'
+    >;
     hours: Schema.Attribute.Relation<
       'oneToMany',
       'api::business-hour.business-hour'
     >;
+    hoursText: Schema.Attribute.Text &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 500;
+      }>;
     isFeatured: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     isVerified: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
-    lat: Schema.Attribute.Decimal &
-      Schema.Attribute.SetMinMax<
-        {
-          max: 90;
-          min: -90;
-        },
-        number
-      >;
-    lng: Schema.Attribute.Decimal &
-      Schema.Attribute.SetMinMax<
-        {
-          max: 180;
-          min: -180;
-        },
-        number
-      >;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -534,12 +585,19 @@ export interface ApiBusinessBusiness extends Struct.CollectionTypeSchema {
     > &
       Schema.Attribute.Private;
     logo: Schema.Attribute.Media<'images'>;
+    logoUrl: Schema.Attribute.Text;
+    mapEmbedUrl: Schema.Attribute.Text;
+    menuUrl: Schema.Attribute.Text;
     name: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.SetMinMaxLength<{
         maxLength: 120;
         minLength: 2;
       }>;
+    neighborhood: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::neighborhood.neighborhood'
+    >;
     owner: Schema.Attribute.Relation<
       'manyToOne',
       'plugin::users-permissions.user'
@@ -549,8 +607,12 @@ export interface ApiBusinessBusiness extends Struct.CollectionTypeSchema {
     > &
       Schema.Attribute.Required &
       Schema.Attribute.DefaultTo<'unclaimed'>;
-    phone: Schema.Attribute.String;
+    paymentMethods: Schema.Attribute.JSON;
+    phones: Schema.Attribute.Component<'business.phone', true>;
     photos: Schema.Attribute.Relation<'oneToMany', 'api::photo.photo'>;
+    priceLevel: Schema.Attribute.Enumeration<
+      ['free', 'budget', 'moderate', 'upscale', 'luxury']
+    >;
     publishedAt: Schema.Attribute.DateTime;
     ratingAverage: Schema.Attribute.Decimal &
       Schema.Attribute.SetMinMax<
@@ -569,6 +631,14 @@ export interface ApiBusinessBusiness extends Struct.CollectionTypeSchema {
         number
       > &
       Schema.Attribute.DefaultTo<0>;
+    reviewCount: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<0>;
     reviews: Schema.Attribute.Relation<'oneToMany', 'api::review.review'>;
     secondaryCategories: Schema.Attribute.Relation<
       'manyToMany',
@@ -577,22 +647,16 @@ export interface ApiBusinessBusiness extends Struct.CollectionTypeSchema {
     seo: Schema.Attribute.Component<'shared.seo', false>;
     shortDescription: Schema.Attribute.String &
       Schema.Attribute.SetMinMaxLength<{
-        maxLength: 160;
+        maxLength: 200;
       }>;
     slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
-    socialLinks: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::social-link.social-link'
-    >;
-    status: Schema.Attribute.Enumeration<
-      ['draft', 'published', 'pending_review', 'suspended']
-    > &
-      Schema.Attribute.Required &
-      Schema.Attribute.DefaultTo<'draft'>;
-    tags: Schema.Attribute.JSON;
+    socialLinks: Schema.Attribute.Component<'business.social-link', true>;
+    tags: Schema.Attribute.Relation<'manyToMany', 'api::tag.tag'>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    verifiedAt: Schema.Attribute.DateTime;
+    videoUrl: Schema.Attribute.Text;
     viewCount: Schema.Attribute.Integer &
       Schema.Attribute.SetMinMax<
         {
@@ -602,14 +666,13 @@ export interface ApiBusinessBusiness extends Struct.CollectionTypeSchema {
       > &
       Schema.Attribute.DefaultTo<0>;
     website: Schema.Attribute.String;
-    whatsapp: Schema.Attribute.String;
   };
 }
 
 export interface ApiCategoryCategory extends Struct.CollectionTypeSchema {
   collectionName: 'categories';
   info: {
-    description: 'Categor\u00EDas y subcategor\u00EDas de negocios';
+    description: 'Categor\u00EDas y subcategor\u00EDas de negocios (\u00E1rbol adjacency list)';
     displayName: 'Category';
     pluralName: 'categories';
     singularName: 'category';
@@ -618,21 +681,42 @@ export interface ApiCategoryCategory extends Struct.CollectionTypeSchema {
     draftAndPublish: false;
   };
   attributes: {
+    businessCount: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<0>;
     businesses: Schema.Attribute.Relation<
       'oneToMany',
       'api::business.business'
     >;
     children: Schema.Attribute.Relation<'oneToMany', 'api::category.category'>;
     color: Schema.Attribute.String;
+    coverImage: Schema.Attribute.Media<'images'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    depth: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<0>;
     description: Schema.Attribute.Text &
       Schema.Attribute.SetMinMaxLength<{
         maxLength: 300;
       }>;
-    icon: Schema.Attribute.String;
+    icon: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 80;
+      }>;
     isActive: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    isFeatured: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -643,17 +727,81 @@ export interface ApiCategoryCategory extends Struct.CollectionTypeSchema {
       Schema.Attribute.Required &
       Schema.Attribute.Unique &
       Schema.Attribute.SetMinMaxLength<{
-        maxLength: 50;
+        maxLength: 60;
         minLength: 2;
       }>;
     order: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
     parent: Schema.Attribute.Relation<'manyToOne', 'api::category.category'>;
+    path: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 500;
+      }>;
     publishedAt: Schema.Attribute.DateTime;
     secondaryBusinesses: Schema.Attribute.Relation<
       'manyToMany',
       'api::business.business'
     >;
+    seo: Schema.Attribute.Component<'shared.seo', false>;
     slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiCityCity extends Struct.CollectionTypeSchema {
+  collectionName: 'cities';
+  info: {
+    description: 'Ciudad / municipio dentro de un estado';
+    displayName: 'City';
+    pluralName: 'cities';
+    singularName: 'city';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    boundingRadiusKm: Schema.Attribute.Decimal &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<20>;
+    businessCount: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<0>;
+    businesses: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::business.business'
+    >;
+    center: Schema.Attribute.Component<'shared.geo', false>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    isActive: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<'oneToMany', 'api::city.city'> &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 120;
+        minLength: 2;
+      }>;
+    neighborhoods: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::neighborhood.neighborhood'
+    >;
+    publishedAt: Schema.Attribute.DateTime;
+    slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
+    state: Schema.Attribute.Relation<'manyToOne', 'api::state.state'>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -717,6 +865,49 @@ export interface ApiClaimClaim extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiNeighborhoodNeighborhood
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'neighborhoods';
+  info: {
+    description: 'Colonia / fraccionamiento dentro de una ciudad';
+    displayName: 'Neighborhood';
+    pluralName: 'neighborhoods';
+    singularName: 'neighborhood';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    businesses: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::business.business'
+    >;
+    city: Schema.Attribute.Relation<'manyToOne', 'api::city.city'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    isActive: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::neighborhood.neighborhood'
+    > &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 120;
+        minLength: 2;
+      }>;
+    postalCode: Schema.Attribute.String;
+    publishedAt: Schema.Attribute.DateTime;
+    slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiPhotoPhoto extends Struct.CollectionTypeSchema {
   collectionName: 'photos';
   info: {
@@ -743,7 +934,20 @@ export interface ApiPhotoPhoto extends Struct.CollectionTypeSchema {
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::photo.photo'> &
       Schema.Attribute.Private;
     order: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    photoStatus: Schema.Attribute.Enumeration<
+      ['pending', 'approved', 'rejected']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'approved'>;
     publishedAt: Schema.Attribute.DateTime;
+    reportCount: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<0>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -788,6 +992,11 @@ export interface ApiReportReport extends Struct.CollectionTypeSchema {
       'manyToOne',
       'plugin::users-permissions.user'
     >;
+    reportStatus: Schema.Attribute.Enumeration<
+      ['pending', 'reviewed', 'actioned', 'dismissed']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'pending'>;
     resolution: Schema.Attribute.Text &
       Schema.Attribute.SetMinMaxLength<{
         maxLength: 500;
@@ -797,11 +1006,6 @@ export interface ApiReportReport extends Struct.CollectionTypeSchema {
       'manyToOne',
       'plugin::users-permissions.user'
     >;
-    status: Schema.Attribute.Enumeration<
-      ['pending', 'reviewed', 'actioned', 'dismissed']
-    > &
-      Schema.Attribute.Required &
-      Schema.Attribute.DefaultTo<'pending'>;
     targetId: Schema.Attribute.Integer & Schema.Attribute.Required;
     targetType: Schema.Attribute.Enumeration<['business', 'review', 'photo']> &
       Schema.Attribute.Required;
@@ -837,6 +1041,7 @@ export interface ApiReviewReview extends Struct.CollectionTypeSchema {
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    editedAt: Schema.Attribute.DateTime;
     helpfulCount: Schema.Attribute.Integer &
       Schema.Attribute.SetMinMax<
         {
@@ -872,7 +1077,7 @@ export interface ApiReviewReview extends Struct.CollectionTypeSchema {
       > &
       Schema.Attribute.DefaultTo<0>;
     response: Schema.Attribute.Component<'business.response', false>;
-    status: Schema.Attribute.Enumeration<
+    reviewStatus: Schema.Attribute.Enumeration<
       ['published', 'pending', 'hidden', 'removed']
     > &
       Schema.Attribute.Required &
@@ -888,37 +1093,101 @@ export interface ApiReviewReview extends Struct.CollectionTypeSchema {
   };
 }
 
-export interface ApiSocialLinkSocialLink extends Struct.CollectionTypeSchema {
-  collectionName: 'social_links';
+export interface ApiStateState extends Struct.CollectionTypeSchema {
+  collectionName: 'states';
   info: {
-    description: 'Enlace a red social de un negocio';
-    displayName: 'SocialLink';
-    pluralName: 'social-links';
-    singularName: 'social-link';
+    description: 'Estado / provincia (M\u00E9xico)';
+    displayName: 'State';
+    pluralName: 'states';
+    singularName: 'state';
   };
   options: {
     draftAndPublish: false;
   };
   attributes: {
-    business: Schema.Attribute.Relation<'manyToOne', 'api::business.business'>;
+    cities: Schema.Attribute.Relation<'oneToMany', 'api::city.city'>;
+    code: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 5;
+      }>;
+    country: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 5;
+      }> &
+      Schema.Attribute.DefaultTo<'MX'>;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
+    isActive: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<
-      'oneToMany',
-      'api::social-link.social-link'
-    > &
+    localizations: Schema.Attribute.Relation<'oneToMany', 'api::state.state'> &
       Schema.Attribute.Private;
-    platform: Schema.Attribute.Enumeration<
-      ['facebook', 'instagram', 'tiktok', 'twitter', 'youtube', 'linkedin']
-    > &
-      Schema.Attribute.Required;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 80;
+        minLength: 2;
+      }>;
     publishedAt: Schema.Attribute.DateTime;
+    slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
-    url: Schema.Attribute.String & Schema.Attribute.Required;
+  };
+}
+
+export interface ApiTagTag extends Struct.CollectionTypeSchema {
+  collectionName: 'tags';
+  info: {
+    description: "Etiquetas / servicios que caracterizan a un negocio (ej. 'wifi', 'delivery', 'estacionamiento')";
+    displayName: 'Tag';
+    pluralName: 'tags';
+    singularName: 'tag';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    businessCount: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<0>;
+    businesses: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::business.business'
+    >;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 200;
+      }>;
+    icon: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 80;
+      }>;
+    isActive: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<'oneToMany', 'api::tag.tag'> &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.Unique &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 60;
+        minLength: 2;
+      }>;
+    publishedAt: Schema.Attribute.DateTime;
+    slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
   };
 }
 
@@ -1453,14 +1722,18 @@ declare module '@strapi/strapi' {
       'admin::transfer-token': AdminTransferToken;
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
+      'api::business-hour-exception.business-hour-exception': ApiBusinessHourExceptionBusinessHourException;
       'api::business-hour.business-hour': ApiBusinessHourBusinessHour;
       'api::business.business': ApiBusinessBusiness;
       'api::category.category': ApiCategoryCategory;
+      'api::city.city': ApiCityCity;
       'api::claim.claim': ApiClaimClaim;
+      'api::neighborhood.neighborhood': ApiNeighborhoodNeighborhood;
       'api::photo.photo': ApiPhotoPhoto;
       'api::report.report': ApiReportReport;
       'api::review.review': ApiReviewReview;
-      'api::social-link.social-link': ApiSocialLinkSocialLink;
+      'api::state.state': ApiStateState;
+      'api::tag.tag': ApiTagTag;
       'plugin::content-releases.release': PluginContentReleasesRelease;
       'plugin::content-releases.release-action': PluginContentReleasesReleaseAction;
       'plugin::i18n.locale': PluginI18NLocale;

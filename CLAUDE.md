@@ -98,8 +98,10 @@ El método `create` está sobrescrito para inyectar `owner: ctx.state.user.id` a
 
 | Campo | Valores | Default |
 |-------|---------|---------|
-| `status` | `draft`, `published`, `pending_review`, `suspended` | `draft` |
+| `businessStatus` | `draft`, `published`, `pending_review`, `suspended` | `draft` |
 | `ownershipStatus` | `unclaimed`, `pending_claim`, `claimed` | `unclaimed` |
+
+> `status` es nombre reservado en Strapi 5 (draft/publish del Document Service). Todos los campos personalizados de estado usan prefijo: `businessStatus`, `claimStatus`.
 
 ---
 

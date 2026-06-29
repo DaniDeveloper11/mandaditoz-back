@@ -1,0 +1,47 @@
+{
+  "kind": "collectionType",
+  "collectionName": "neighborhoods",
+  "info": {
+    "singularName": "neighborhood",
+    "pluralName": "neighborhoods",
+    "displayName": "Neighborhood",
+    "description": "Colonia / fraccionamiento dentro de una ciudad"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "minLength": 2,
+      "maxLength": 120
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "name",
+      "required": true
+    },
+    "city": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::city.city",
+      "inversedBy": "neighborhoods"
+    },
+    "postalCode": {
+      "type": "string",
+      "regex": "^[0-9]{5}$"
+    },
+    "isActive": {
+      "type": "boolean",
+      "default": true
+    },
+    "businesses": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::business.business",
+      "mappedBy": "neighborhood"
+    }
+  }
+}

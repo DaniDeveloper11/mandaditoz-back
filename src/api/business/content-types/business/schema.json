@@ -8,7 +8,7 @@
     "description": "Negocios del directorio"
   },
   "options": {
-    "draftAndPublish": true
+    "draftAndPublish": false
   },
   "pluginOptions": {},
   "attributes": {
@@ -25,7 +25,7 @@
     },
     "shortDescription": {
       "type": "string",
-      "maxLength": 160
+      "maxLength": 200
     },
     "description": {
       "type": "richtext",
@@ -44,40 +44,50 @@
       "inversedBy": "secondaryBusinesses"
     },
     "tags": {
-      "type": "json",
-      "description": "Array de strings, max 10"
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::tag.tag",
+      "inversedBy": "businesses"
     },
-    "phone": {
-      "type": "string",
-      "regex": "^[+]?[0-9\\s\\-()]{3,20}$"
-    },
-    "whatsapp": {
-      "type": "string",
-      "regex": "^[+]?[0-9\\s\\-()]{3,20}$"
+    "phones": {
+      "type": "component",
+      "repeatable": true,
+      "component": "business.phone"
     },
     "email": {
       "type": "email"
     },
     "website": {
       "type": "string",
-      "regex": "^https?:\\/\\/.+$"
+      "regex": "^https?:\\/\\/[^\\s]+\\.[^\\s]+$"
     },
     "address": {
       "type": "component",
       "repeatable": false,
       "component": "shared.address"
     },
-    "lat": {
-      "type": "decimal",
-      "min": -90,
-      "max": 90
+    "geo": {
+      "type": "component",
+      "repeatable": false,
+      "component": "shared.geo"
     },
-    "lng": {
-      "type": "decimal",
-      "min": -180,
-      "max": 180
+    "mapEmbedUrl": {
+      "type": "text",
+      "description": "URL de embed de Google Maps (iframe src)"
     },
-    "status": {
+    "city": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::city.city",
+      "inversedBy": "businesses"
+    },
+    "neighborhood": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::neighborhood.neighborhood",
+      "inversedBy": "businesses"
+    },
+    "businessStatus": {
       "type": "enumeration",
       "enum": ["draft", "published", "pending_review", "suspended"],
       "default": "draft",
@@ -103,12 +113,39 @@
       "type": "boolean",
       "default": false
     },
+    "verifiedAt": {
+      "type": "datetime"
+    },
     "isFeatured": {
       "type": "boolean",
       "default": false
     },
     "featuredUntil": {
       "type": "datetime"
+    },
+    "priceLevel": {
+      "type": "enumeration",
+      "enum": ["free", "budget", "moderate", "upscale", "luxury"],
+      "description": "Rango de precios: free (sin costo), budget ($), moderate ($$), upscale ($$$), luxury ($$$$)"
+    },
+    "paymentMethods": {
+      "type": "json",
+      "description": "Array de strings: cash, card, transfer, mercado_pago, oxxo, etc."
+    },
+    "amenities": {
+      "type": "json",
+      "description": "Array de strings: wifi, parking, wheelchair_access, pet_friendly, delivery, takeout, dine_in, outdoor_seating, reservations, etc."
+    },
+    "menuUrl": {
+      "type": "text"
+    },
+    "videoUrl": {
+      "type": "text"
+    },
+    "hoursText": {
+      "type": "text",
+      "maxLength": 500,
+      "description": "Descripción libre del horario (fallback para renderizar cuando business-hours no es suficiente)"
     },
     "viewCount": {
       "type": "integer",
@@ -126,6 +163,11 @@
       "default": 0,
       "min": 0
     },
+    "reviewCount": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
+    },
     "seo": {
       "type": "component",
       "repeatable": false,
@@ -137,16 +179,30 @@
       "required": false,
       "allowedTypes": ["images"]
     },
+    "logoUrl": {
+      "type": "text",
+      "description": "URL externa del logo (usado durante seed cuando no hay upload aún)"
+    },
     "coverPhoto": {
       "type": "media",
       "multiple": false,
       "required": false,
       "allowedTypes": ["images"]
     },
+    "coverPhotoUrl": {
+      "type": "text",
+      "description": "URL externa del cover (usado durante seed cuando no hay upload aún)"
+    },
     "hours": {
       "type": "relation",
       "relation": "oneToMany",
       "target": "api::business-hour.business-hour",
+      "mappedBy": "business"
+    },
+    "hourExceptions": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::business-hour-exception.business-hour-exception",
       "mappedBy": "business"
     },
     "photos": {
@@ -162,16 +218,19 @@
       "mappedBy": "business"
     },
     "socialLinks": {
-      "type": "relation",
-      "relation": "oneToMany",
-      "target": "api::social-link.social-link",
-      "mappedBy": "business"
+      "type": "component",
+      "repeatable": true,
+      "component": "business.social-link"
     },
     "claims": {
       "type": "relation",
       "relation": "oneToMany",
       "target": "api::claim.claim",
       "mappedBy": "business"
+    },
+    "archivedAt": {
+      "type": "datetime",
+      "description": "Soft delete: si no es null, el negocio está archivado"
     }
   }
 }

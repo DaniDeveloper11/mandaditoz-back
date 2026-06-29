@@ -1,0 +1,52 @@
+{
+  "kind": "collectionType",
+  "collectionName": "tags",
+  "info": {
+    "singularName": "tag",
+    "pluralName": "tags",
+    "displayName": "Tag",
+    "description": "Etiquetas / servicios que caracterizan a un negocio (ej. 'wifi', 'delivery', 'estacionamiento')"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "minLength": 2,
+      "maxLength": 60
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "name",
+      "required": true
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "icon": {
+      "type": "string",
+      "maxLength": 80,
+      "description": "Nombre del ícono lucide (opcional)"
+    },
+    "isActive": {
+      "type": "boolean",
+      "default": true
+    },
+    "businessCount": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
+    },
+    "businesses": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::business.business",
+      "mappedBy": "tags"
+    }
+  }
+}

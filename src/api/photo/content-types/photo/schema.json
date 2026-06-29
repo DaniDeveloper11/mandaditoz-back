@@ -41,6 +41,17 @@
     "isApproved": {
       "type": "boolean",
       "default": true
+    },
+    "photoStatus": {
+      "type": "enumeration",
+      "enum": ["pending", "approved", "rejected"],
+      "default": "approved",
+      "required": true
+    },
+    "reportCount": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
     }
   }
 }

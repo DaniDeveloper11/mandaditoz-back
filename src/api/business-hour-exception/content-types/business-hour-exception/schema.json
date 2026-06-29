@@ -1,0 +1,48 @@
+{
+  "kind": "collectionType",
+  "collectionName": "business_hour_exceptions",
+  "info": {
+    "singularName": "business-hour-exception",
+    "pluralName": "business-hour-exceptions",
+    "displayName": "BusinessHourException",
+    "description": "Excepción puntual al horario regular (festivos, cierre por vacaciones, apertura especial)"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "business": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::business.business",
+      "inversedBy": "hourExceptions",
+      "required": true
+    },
+    "date": {
+      "type": "date",
+      "required": true,
+      "description": "Fecha específica a la que aplica la excepción"
+    },
+    "isClosed": {
+      "type": "boolean",
+      "default": true,
+      "description": "Por defecto una excepción marca el día como cerrado. Si false, usa openTime/closeTime"
+    },
+    "openTime": {
+      "type": "time"
+    },
+    "closeTime": {
+      "type": "time"
+    },
+    "crossesMidnight": {
+      "type": "boolean",
+      "default": false
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "Ej. 'Día de la Virgen', 'Vacaciones', 'Aniversario'"
+    }
+  }
+}

@@ -53,11 +53,15 @@
       "default": 0,
       "min": 0
     },
-    "status": {
+    "reviewStatus": {
       "type": "enumeration",
       "enum": ["published", "pending", "hidden", "removed"],
       "default": "published",
       "required": true
+    },
+    "editedAt": {
+      "type": "datetime",
+      "description": "Timestamp de la última edición del comentario"
     },
     "isReported": {
       "type": "boolean",

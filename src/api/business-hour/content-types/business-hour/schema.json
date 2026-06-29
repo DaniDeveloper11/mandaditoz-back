@@ -5,7 +5,7 @@
     "singularName": "business-hour",
     "pluralName": "business-hours",
     "displayName": "BusinessHour",
-    "description": "Horario de atención por día de un negocio"
+    "description": "Horario de atención por día de un negocio. Permite múltiples filas por (business, dayOfWeek) para horarios partidos (siesta, doble turno)."
   },
   "options": {
     "draftAndPublish": false
@@ -16,7 +16,8 @@
       "type": "relation",
       "relation": "manyToOne",
       "target": "api::business.business",
-      "inversedBy": "hours"
+      "inversedBy": "hours",
+      "required": true
     },
     "dayOfWeek": {
       "type": "enumeration",
@@ -24,18 +25,37 @@
       "required": true
     },
     "openTime": {
-      "type": "time"
+      "type": "time",
+      "description": "Nulo si isClosed=true"
     },
     "closeTime": {
-      "type": "time"
+      "type": "time",
+      "description": "Nulo si isClosed=true. Si crossesMidnight=true, se interpreta como hora del día siguiente"
     },
     "isClosed": {
       "type": "boolean",
-      "default": false
+      "default": false,
+      "description": "Día completamente cerrado (ninguna franja aplica)"
     },
     "is24Hours": {
       "type": "boolean",
-      "default": false
+      "default": false,
+      "description": "Atajo UI: si true, se considera abierto todo el día. Equivalente a openTime=00:00, closeTime=00:00, crossesMidnight=false. Precede sobre openTime/closeTime"
+    },
+    "crossesMidnight": {
+      "type": "boolean",
+      "default": false,
+      "description": "True cuando closeTime < openTime (ej. abre 20:00 y cierra 02:00 del día siguiente)"
+    },
+    "sortOrder": {
+      "type": "integer",
+      "default": 0,
+      "description": "Orden de la franja dentro del mismo día (0 = primera franja, 1 = segunda, etc.)"
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Etiqueta opcional para la franja (ej. 'Desayunos', 'Cena')"
     }
   }
 }

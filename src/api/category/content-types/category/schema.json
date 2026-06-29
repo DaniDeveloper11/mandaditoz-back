@@ -5,7 +5,7 @@
     "singularName": "category",
     "pluralName": "categories",
     "displayName": "Category",
-    "description": "Categorías y subcategorías de negocios"
+    "description": "Categorías y subcategorías de negocios (árbol adjacency list)"
   },
   "options": {
     "draftAndPublish": false
@@ -17,7 +17,7 @@
       "required": true,
       "unique": true,
       "minLength": 2,
-      "maxLength": 50
+      "maxLength": 60
     },
     "slug": {
       "type": "uid",
@@ -30,11 +30,18 @@
     },
     "icon": {
       "type": "string",
-      "description": "Nombre del ícono (ej. 'restaurant', 'shopping-bag')"
+      "maxLength": 80,
+      "description": "Nombre del ícono lucide (ej. 'utensils', 'shopping-bag')"
     },
     "color": {
       "type": "string",
       "regex": "^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"
+    },
+    "coverImage": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["images"]
     },
     "order": {
       "type": "integer",
@@ -43,6 +50,11 @@
     "isActive": {
       "type": "boolean",
       "default": true
+    },
+    "isFeatured": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se muestra en el carrusel de landing"
     },
     "parent": {
       "type": "relation",
@@ -56,6 +68,17 @@
       "target": "api::category.category",
       "mappedBy": "parent"
     },
+    "depth": {
+      "type": "integer",
+      "default": 0,
+      "min": 0,
+      "description": "Nivel en el árbol: 0=raíz, 1=hija, 2=nieta. Mantenido por lifecycle"
+    },
+    "path": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "Materialized path: 'comida/mexicana/tacos'. Mantenido por lifecycle"
+    },
     "businesses": {
       "type": "relation",
       "relation": "oneToMany",
@@ -67,6 +90,17 @@
       "relation": "manyToMany",
       "target": "api::business.business",
       "mappedBy": "secondaryCategories"
+    },
+    "businessCount": {
+      "type": "integer",
+      "default": 0,
+      "min": 0,
+      "description": "Conteo denormalizado de negocios en esta categoría (mantenido por lifecycle en business)"
+    },
+    "seo": {
+      "type": "component",
+      "repeatable": false,
+      "component": "shared.seo"
     }
   }
 }

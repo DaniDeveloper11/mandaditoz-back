@@ -34,8 +34,9 @@ module.exports = {
 
   async afterUpdate(event) {
     const { result, params } = event;
+    const newStatus = params.data?.claimStatus;
 
-    if (params.data?.claimStatus !== 'approved') return;
+    if (newStatus !== 'approved' && newStatus !== 'rejected') return;
 
     try {
       const claim = await strapi.documents('api::claim.claim').findOne({
@@ -44,38 +45,78 @@ module.exports = {
       });
 
       if (!claim?.user || !claim?.business) {
-        strapi.log.warn('[claim] Claim aprobado sin user o business relacionado — verifica que el claim tenga usuario y negocio asignados');
+        strapi.log.warn('[claim] Claim sin user o business relacionado');
         return;
       }
 
-      const businessOwnerRole = await strapi.db
-        .query('plugin::users-permissions.role')
-        .findOne({ where: { name: 'BusinessOwner' } });
+      if (newStatus === 'approved') {
+        const businessOwnerRole = await strapi.db
+          .query('plugin::users-permissions.role')
+          .findOne({ where: { name: 'BusinessOwner' } });
 
-      if (!businessOwnerRole) {
-        strapi.log.warn('[claim] Rol BusinessOwner no encontrado, verifica que exista en el panel');
-        return;
+        if (!businessOwnerRole) {
+          strapi.log.warn('[claim] Rol BusinessOwner no encontrado');
+          return;
+        }
+
+        await strapi.db.query('plugin::users-permissions.user').update({
+          where: { id: claim.user.id },
+          data: { role: businessOwnerRole.id },
+        });
+
+        await strapi.documents('api::business.business').update({
+          documentId: claim.business.documentId,
+          data: {
+            owner: claim.user.id,
+            ownershipStatus: 'claimed',
+            isVerified: true,
+          },
+        });
+
+        strapi.log.info(
+          `[claim] Usuario ${claim.user.id} asignado como BusinessOwner del negocio ${claim.business.documentId}`
+        );
       }
 
-      await strapi.db.query('plugin::users-permissions.user').update({
-        where: { id: claim.user.id },
-        data: { role: businessOwnerRole.id },
-      });
+      await sendClaimEmail(claim, newStatus);
 
-      await strapi.documents('api::business.business').update({
-        documentId: claim.business.documentId,
-        data: {
-          owner: claim.user.id,
-          ownershipStatus: 'claimed',
-          isVerified: true,
-        },
-      });
-
-      strapi.log.info(
-        `[claim] Usuario ${claim.user.id} asignado como BusinessOwner del negocio ${claim.business.documentId}`
-      );
     } catch (err) {
-      strapi.log.error('[claim] Error al procesar aprobación del claim:', err);
+      strapi.log.error('[claim] Error al procesar claim:', err);
     }
   },
 };
+
+async function sendClaimEmail(claim, claimStatus) {
+  const { user, business, rejectionReason } = claim;
+  const businessName = business.name;
+  const isApproved = claimStatus === 'approved';
+
+  const subject = isApproved
+    ? `¡Tu solicitud para "${businessName}" fue aprobada!`
+    : `Tu solicitud para "${businessName}" fue rechazada`;
+
+  const html = isApproved
+    ? `
+      <h2>¡Felicidades, ${user.displayName || user.username}!</h2>
+      <p>Tu solicitud de reclamación para el negocio <strong>${businessName}</strong> ha sido <strong>aprobada</strong>.</p>
+      <p>Ya puedes acceder y administrar tu negocio desde la plataforma.</p>
+    `
+    : `
+      <h2>Hola, ${user.displayName || user.username}</h2>
+      <p>Tu solicitud de reclamación para el negocio <strong>${businessName}</strong> ha sido <strong>rechazada</strong>.</p>
+      ${rejectionReason ? `<p><strong>Motivo:</strong> ${rejectionReason}</p>` : ''}
+      <p>Si tienes dudas, contáctanos.</p>
+    `;
+
+  try {
+    await strapi.plugin('email').service('email').send({
+      to: user.email,
+      from: process.env.SMTP_USER,
+      subject,
+      html,
+    });
+    strapi.log.info(`[claim] Email enviado a ${user.email} (${claimStatus})`);
+  } catch (err) {
+    strapi.log.error(`[claim] Error enviando email a ${user.email}:`, err);
+  }
+}

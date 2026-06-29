@@ -1,0 +1,23 @@
+{
+  "collectionName": "components_shared_geos",
+  "info": {
+    "displayName": "Geo",
+    "icon": "map-pin",
+    "description": "Coordenadas geográficas (lat/lng)"
+  },
+  "options": {},
+  "attributes": {
+    "lat": {
+      "type": "decimal",
+      "required": true,
+      "min": -90,
+      "max": 90
+    },
+    "lng": {
+      "type": "decimal",
+      "required": true,
+      "min": -180,
+      "max": 180
+    }
+  }
+}

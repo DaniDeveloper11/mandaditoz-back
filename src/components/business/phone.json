@@ -1,0 +1,28 @@
+{
+  "collectionName": "components_business_phones",
+  "info": {
+    "displayName": "Phone",
+    "icon": "phone"
+  },
+  "options": {},
+  "attributes": {
+    "number": {
+      "type": "string",
+      "required": true,
+      "regex": "^[+]?[0-9\\s\\-()]{3,20}$"
+    },
+    "label": {
+      "type": "enumeration",
+      "enum": ["mobile", "landline", "office", "home", "whatsapp", "fax", "other"],
+      "default": "mobile"
+    },
+    "hasWhatsapp": {
+      "type": "boolean",
+      "default": false
+    },
+    "isPrimary": {
+      "type": "boolean",
+      "default": false
+    }
+  }
+}

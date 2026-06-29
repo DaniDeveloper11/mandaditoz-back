@@ -1,5 +1,22 @@
 import type { Schema, Struct } from '@strapi/strapi';
 
+export interface BusinessPhone extends Struct.ComponentSchema {
+  collectionName: 'components_business_phones';
+  info: {
+    displayName: 'Phone';
+    icon: 'phone';
+  };
+  attributes: {
+    hasWhatsapp: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    isPrimary: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    label: Schema.Attribute.Enumeration<
+      ['mobile', 'landline', 'office', 'home', 'whatsapp', 'fax', 'other']
+    > &
+      Schema.Attribute.DefaultTo<'mobile'>;
+    number: Schema.Attribute.String & Schema.Attribute.Required;
+  };
+}
+
 export interface BusinessResponse extends Struct.ComponentSchema {
   collectionName: 'components_business_responses';
   info: {
@@ -22,21 +39,41 @@ export interface BusinessResponse extends Struct.ComponentSchema {
   };
 }
 
+export interface BusinessSocialLink extends Struct.ComponentSchema {
+  collectionName: 'components_business_social_links';
+  info: {
+    displayName: 'Social Link';
+    icon: 'link';
+  };
+  attributes: {
+    platform: Schema.Attribute.Enumeration<
+      [
+        'facebook',
+        'instagram',
+        'tiktok',
+        'youtube',
+        'twitter',
+        'linkedin',
+        'pinterest',
+        'snapchat',
+        'telegram',
+        'whatsapp',
+      ]
+    > &
+      Schema.Attribute.Required;
+    url: Schema.Attribute.String & Schema.Attribute.Required;
+  };
+}
+
 export interface SharedAddress extends Struct.ComponentSchema {
   collectionName: 'components_shared_addresses';
   info: {
-    description: 'Direcci\u00F3n f\u00EDsica de un negocio (M\u00E9xico)';
+    description: 'Direcci\u00F3n f\u00EDsica dentro de una ciudad. Estado/ciudad/colonia se manejan como relaciones en business.';
     displayName: 'Address';
     icon: 'map-marker';
   };
   attributes: {
-    city: Schema.Attribute.String &
-      Schema.Attribute.Required &
-      Schema.Attribute.SetMinMaxLength<{
-        maxLength: 120;
-      }>;
     exteriorNumber: Schema.Attribute.String &
-      Schema.Attribute.Required &
       Schema.Attribute.SetMinMaxLength<{
         maxLength: 20;
       }>;
@@ -44,57 +81,49 @@ export interface SharedAddress extends Struct.ComponentSchema {
       Schema.Attribute.SetMinMaxLength<{
         maxLength: 20;
       }>;
-    neighborhood: Schema.Attribute.String &
+    postalCode: Schema.Attribute.String;
+    rawText: Schema.Attribute.String &
       Schema.Attribute.SetMinMaxLength<{
-        maxLength: 120;
+        maxLength: 500;
       }>;
     references: Schema.Attribute.Text &
       Schema.Attribute.SetMinMaxLength<{
         maxLength: 300;
       }>;
-    state: Schema.Attribute.Enumeration<
-      [
-        'Aguascalientes',
-        'Baja California',
-        'Baja California Sur',
-        'Campeche',
-        'Chiapas',
-        'Chihuahua',
-        'Ciudad de M\u00E9xico',
-        'Coahuila',
-        'Colima',
-        'Durango',
-        'Estado de M\u00E9xico',
-        'Guanajuato',
-        'Guerrero',
-        'Hidalgo',
-        'Jalisco',
-        'Michoac\u00E1n',
-        'Morelos',
-        'Nayarit',
-        'Nuevo Le\u00F3n',
-        'Oaxaca',
-        'Puebla',
-        'Quer\u00E9taro',
-        'Quintana Roo',
-        'San Luis Potos\u00ED',
-        'Sinaloa',
-        'Sonora',
-        'Tabasco',
-        'Tamaulipas',
-        'Tlaxcala',
-        'Veracruz',
-        'Yucat\u00E1n',
-        'Zacatecas',
-      ]
-    > &
-      Schema.Attribute.Required;
     street: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.SetMinMaxLength<{
         maxLength: 200;
       }>;
-    zip: Schema.Attribute.String;
+  };
+}
+
+export interface SharedGeo extends Struct.ComponentSchema {
+  collectionName: 'components_shared_geos';
+  info: {
+    description: 'Coordenadas geogr\u00E1ficas (lat/lng)';
+    displayName: 'Geo';
+    icon: 'map-pin';
+  };
+  attributes: {
+    lat: Schema.Attribute.Decimal &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 90;
+          min: -90;
+        },
+        number
+      >;
+    lng: Schema.Attribute.Decimal &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          max: 180;
+          min: -180;
+        },
+        number
+      >;
   };
 }
 
@@ -126,8 +155,11 @@ export interface SharedSeo extends Struct.ComponentSchema {
 declare module '@strapi/strapi' {
   export module Public {
     export interface ComponentSchemas {
+      'business.phone': BusinessPhone;
       'business.response': BusinessResponse;
+      'business.social-link': BusinessSocialLink;
       'shared.address': SharedAddress;
+      'shared.geo': SharedGeo;
       'shared.seo': SharedSeo;
     }
   }

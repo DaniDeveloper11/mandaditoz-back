@@ -1,0 +1,31 @@
+{
+  "collectionName": "components_business_social_links",
+  "info": {
+    "displayName": "Social Link",
+    "icon": "link"
+  },
+  "options": {},
+  "attributes": {
+    "platform": {
+      "type": "enumeration",
+      "enum": [
+        "facebook",
+        "instagram",
+        "tiktok",
+        "youtube",
+        "twitter",
+        "linkedin",
+        "pinterest",
+        "snapchat",
+        "telegram",
+        "whatsapp"
+      ],
+      "required": true
+    },
+    "url": {
+      "type": "string",
+      "required": true,
+      "regex": "^https?:\\/\\/.+$"
+    }
+  }
+}
