@@ -587,6 +587,8 @@ export interface ApiBusinessBusiness extends Struct.CollectionTypeSchema {
     logo: Schema.Attribute.Media<'images'>;
     logoUrl: Schema.Attribute.Text;
     mapEmbedUrl: Schema.Attribute.Text;
+    menuImages: Schema.Attribute.Media<'images', true>;
+    menuPdf: Schema.Attribute.Media<'files'>;
     menuUrl: Schema.Attribute.Text;
     name: Schema.Attribute.String &
       Schema.Attribute.Required &

@@ -139,6 +139,18 @@
     "menuUrl": {
       "type": "text"
     },
+    "menuPdf": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["files"]
+    },
+    "menuImages": {
+      "type": "media",
+      "multiple": true,
+      "required": false,
+      "allowedTypes": ["images"]
+    },
     "videoUrl": {
       "type": "text"
     },
