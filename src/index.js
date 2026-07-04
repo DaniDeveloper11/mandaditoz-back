@@ -29,6 +29,10 @@ const PUBLIC_PERMISSIONS = {
 
 const AUTHENTICATED_PERMISSIONS = {
   'api::business.business': ['update', 'delete'],
+  'api::category.category': ['find', 'findOne'],
+  'api::city.city': ['find', 'findOne'],
+  'api::neighborhood.neighborhood': ['find', 'findOne'],
+  'api::tag.tag': ['find', 'findOne'],
   'api::claim.claim': ['create', 'find', 'findOne'],
   'api::report.report': ['create'],
   'api::review.review': ['create', 'update', 'delete'],
@@ -40,6 +44,10 @@ const BUSINESS_OWNER_PERMISSIONS = {
   'api::business.business': ['create', 'find', 'findOne', 'update', 'delete'],
   'api::business-hour.business-hour': ['create', 'update', 'delete', 'find', 'findOne'],
   'api::business-hour-exception.business-hour-exception': ['create', 'update', 'delete', 'find', 'findOne'],
+  'api::category.category': ['find', 'findOne'],
+  'api::city.city': ['find', 'findOne'],
+  'api::neighborhood.neighborhood': ['find', 'findOne'],
+  'api::tag.tag': ['find', 'findOne'],
   'api::photo.photo': ['create', 'update', 'delete', 'find', 'findOne'],
   'api::claim.claim': ['create', 'find', 'findOne'],
   'api::review.review': ['find', 'findOne'],
