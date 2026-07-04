@@ -33,9 +33,11 @@ const AUTHENTICATED_PERMISSIONS = {
   'api::city.city': ['find', 'findOne'],
   'api::neighborhood.neighborhood': ['find', 'findOne'],
   'api::tag.tag': ['find', 'findOne'],
+  'api::photo.photo': ['create', 'update', 'delete', 'find', 'findOne'],
   'api::claim.claim': ['create', 'find', 'findOne'],
   'api::report.report': ['create'],
   'api::review.review': ['create', 'update', 'delete'],
+  'plugin::upload': ['content-api.upload'],
   'plugin::users-permissions.auth': ['changePassword', 'logout'],
   'plugin::users-permissions.user': ['me', 'updateMe'],
 };
@@ -51,6 +53,7 @@ const BUSINESS_OWNER_PERMISSIONS = {
   'api::photo.photo': ['create', 'update', 'delete', 'find', 'findOne'],
   'api::claim.claim': ['create', 'find', 'findOne'],
   'api::review.review': ['find', 'findOne'],
+  'plugin::upload': ['content-api.upload'],
   'plugin::users-permissions.user': ['me', 'updateMe'],
 };
 
