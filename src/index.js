@@ -28,7 +28,7 @@ const PUBLIC_PERMISSIONS = {
 };
 
 const AUTHENTICATED_PERMISSIONS = {
-  'api::business.business': ['update', 'delete'],
+  'api::business.business': ['update', 'delete', 'mine'],
   'api::category.category': ['find', 'findOne'],
   'api::city.city': ['find', 'findOne'],
   'api::neighborhood.neighborhood': ['find', 'findOne'],
@@ -43,7 +43,7 @@ const AUTHENTICATED_PERMISSIONS = {
 };
 
 const BUSINESS_OWNER_PERMISSIONS = {
-  'api::business.business': ['create', 'find', 'findOne', 'update', 'delete'],
+  'api::business.business': ['create', 'find', 'findOne', 'update', 'delete', 'mine'],
   'api::business-hour.business-hour': ['create', 'update', 'delete', 'find', 'findOne'],
   'api::business-hour-exception.business-hour-exception': ['create', 'update', 'delete', 'find', 'findOne'],
   'api::category.category': ['find', 'findOne'],
