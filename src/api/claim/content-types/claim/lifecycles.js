@@ -70,6 +70,7 @@ module.exports = {
             owner: claim.user.id,
             ownershipStatus: 'claimed',
             isVerified: true,
+            verifiedAt: new Date(),
           },
         });
 
