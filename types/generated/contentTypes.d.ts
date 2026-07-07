@@ -577,6 +577,7 @@ export interface ApiBusinessBusiness extends Struct.CollectionTypeSchema {
         maxLength: 500;
       }>;
     isFeatured: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    isMobile: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     isVerified: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
@@ -653,6 +654,17 @@ export interface ApiBusinessBusiness extends Struct.CollectionTypeSchema {
       }>;
     slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
     socialLinks: Schema.Attribute.Component<'business.social-link', true>;
+    submitterEmail: Schema.Attribute.Email & Schema.Attribute.Private;
+    submitterName: Schema.Attribute.String &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 120;
+      }>;
+    submitterPhone: Schema.Attribute.String &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 20;
+      }>;
     tags: Schema.Attribute.Relation<'manyToMany', 'api::tag.tag'>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &

@@ -4,7 +4,8 @@
 // Se aplican de forma idempotente: solo crea permisos que no existen.
 
 const PUBLIC_PERMISSIONS = {
-  'api::business.business': ['find', 'findOne'],
+  'api::business.business': ['find', 'findOne', 'submit'],
+  'plugin::upload': ['content-api.upload'],
   'api::business-hour.business-hour': ['find', 'findOne'],
   'api::business-hour-exception.business-hour-exception': ['find', 'findOne'],
   'api::category.category': ['find', 'findOne'],

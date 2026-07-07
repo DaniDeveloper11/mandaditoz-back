@@ -37,6 +37,85 @@ module.exports = factories.createCoreController('api::business.business', ({ str
     return response;
   },
 
+  async submit(ctx) {
+    // Endpoint público para que cualquier persona (sin cuenta) envíe una
+    // solicitud de publicación. El admin revisa manualmente en el panel.
+    // TODO: agregar throttling por IP cuando aparezca abuso real (koa-ratelimit).
+    const body = ctx.request.body?.data ?? {};
+
+    const name = String(body.name ?? '').trim();
+    const categoryId = body.category ?? body.categoryId ?? null;
+    const cityId = body.city ?? body.cityDocumentId ?? null;
+    const phones = Array.isArray(body.phones) ? body.phones : [];
+    const isMobile = !!body.isMobile;
+    const address = isMobile ? null : (body.address ?? null);
+    const submitterName = String(body.submitterName ?? '').trim();
+    const submitterEmail = String(body.submitterEmail ?? '').trim();
+    const submitterPhone = String(body.submitterPhone ?? '').trim();
+
+    if (name.length < 2) return ctx.badRequest('Nombre inválido');
+    if (!categoryId) return ctx.badRequest('Categoría requerida');
+    if (!cityId) return ctx.badRequest('Municipio requerido');
+    if (!phones.length || !phones[0]?.number) return ctx.badRequest('Teléfono requerido');
+    if (!submitterName) return ctx.badRequest('Nombre del contacto requerido');
+    if (!/^[^@]+@[^@]+\.[^@]+$/.test(submitterEmail)) return ctx.badRequest('Email del contacto inválido');
+    if (body.email && !/^[^@]+@[^@]+\.[^@]+$/.test(body.email)) return ctx.badRequest('Email del negocio inválido');
+    if (body.website && !/^https?:\/\/[^\s]+\.[^\s]+$/.test(body.website)) return ctx.badRequest('Sitio web inválido');
+
+    const slugify = (str) =>
+      String(str ?? '')
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 80);
+
+    const data = {
+      name,
+      slug: `${slugify(name)}-${Date.now().toString(36)}`,
+      shortDescription: body.shortDescription || null,
+      description: body.description || null,
+      email: body.email || null,
+      website: body.website || null,
+      category: categoryId,
+      city: cityId,
+      phones,
+      address,
+      isMobile,
+      paymentMethods: Array.isArray(body.paymentMethods) && body.paymentMethods.length ? body.paymentMethods : null,
+      logo: body.logo ?? null,
+      menuPdf: body.menuPdf ?? null,
+      menuImages: Array.isArray(body.menuImages) && body.menuImages.length ? body.menuImages : null,
+      submitterName,
+      submitterEmail,
+      submitterPhone: submitterPhone || null,
+      businessStatus: 'pending_review',
+      ownershipStatus: 'unclaimed',
+      createdByAdmin: false,
+    };
+
+    const created = await strapi.documents('api::business.business').create({ data });
+
+    const hours = Array.isArray(body.hours) ? body.hours : [];
+    for (const h of hours) {
+      if (!h?.dayOfWeek) continue;
+      await strapi.documents('api::business-hour.business-hour').create({
+        data: {
+          business: created.documentId,
+          dayOfWeek: h.dayOfWeek,
+          openTime: h.openTime ?? null,
+          closeTime: h.closeTime ?? null,
+          isClosed: !!h.isClosed,
+          is24Hours: !!h.is24Hours,
+        },
+      });
+    }
+
+    ctx.body = { ok: true, documentId: created.documentId };
+  },
+
   async mine(ctx) {
     const user = ctx.state.user;
     if (!user) return ctx.unauthorized();
