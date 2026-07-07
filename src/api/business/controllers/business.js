@@ -61,6 +61,7 @@ module.exports = factories.createCoreController('api::business.business', ({ str
     if (!/^[^@]+@[^@]+\.[^@]+$/.test(submitterEmail)) return ctx.badRequest('Email del contacto inválido');
     if (body.email && !/^[^@]+@[^@]+\.[^@]+$/.test(body.email)) return ctx.badRequest('Email del negocio inválido');
     if (body.website && !/^https?:\/\/[^\s]+\.[^\s]+$/.test(body.website)) return ctx.badRequest('Sitio web inválido');
+    if (body.termsAccepted !== true) return ctx.badRequest('Debes aceptar los Términos y la Política de privacidad');
 
     const slugify = (str) =>
       String(str ?? '')
@@ -91,6 +92,7 @@ module.exports = factories.createCoreController('api::business.business', ({ str
       submitterName,
       submitterEmail,
       submitterPhone: submitterPhone || null,
+      termsAcceptedAt: new Date(),
       businessStatus: 'pending_review',
       ownershipStatus: 'unclaimed',
       createdByAdmin: false,

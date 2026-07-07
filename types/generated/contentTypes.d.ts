@@ -666,6 +666,7 @@ export interface ApiBusinessBusiness extends Struct.CollectionTypeSchema {
         maxLength: 20;
       }>;
     tags: Schema.Attribute.Relation<'manyToMany', 'api::tag.tag'>;
+    termsAcceptedAt: Schema.Attribute.DateTime & Schema.Attribute.Private;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
