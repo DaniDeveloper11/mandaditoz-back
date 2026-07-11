@@ -20,48 +20,71 @@ const fs = require('fs');
 const path = require('path');
 const { createStrapi, compileStrapi } = require('@strapi/strapi');
 
-const SOURCE_JSON = path.resolve(__dirname, '../../negocios_etzatlan.json');
+const SOURCE_JSON = path.resolve(__dirname, '../../negocios_etzatlan_v2.json');
 
-// Mapeo: categoría legacy del JSON → slug de la nueva taxonomía
+// Mapeo: categoría del JSON → slug real de la BD.
+// Los slugs de la BD son singulares y sin acentos (`restaurante`, no `restaurantes`).
 const CATEGORY_MAP = {
+  // Existentes en BD
   'mariscos':      'mariscos',
   'tacos':         'tacos',
   'moto-servicio': 'moto-servicio',
-  'restaurante':   'restaurantes',
-  'carne':         'carnes-y-asados',
-  'comida':        'comida-en-general',
-  'taxi':          'taxis',
-  'rosticería':    'pollo-y-rosticerias',
-  'ferretería':    'ferreterias',
-  'alas':          'alitas',
+  'restaurante':   'restaurante',
+  'carne':         'carne',
+  'comida':        'comida',
+  'taxi':          'taxi',
+  'rosticería':    'rosticeria',
+  'ferretería':    'ferreteria',
+  'alas':          'alas',
   'pizza':         'pizza',
   'música':        'musica',
-  'café':          'cafeterias',
+  'café':          'cafe',
   'cabañas':       'cabanas',
-  'emergencia':    'emergencias',
-  'fiesta':        'organizacion-de-fiestas',
-  'lonche':        'lonches-y-tortas',
-  'deposito':      'depositos',
-  'kind':          'preescolar',
+  'emergencia':    'emergencia',
+  'fiesta':        'fiesta',
+  'lonche':        'lonche',
+  'deposito':      'deposito',
   'agua':          'agua',
-  'bar':           'bares',
+  'bar':           'bar',
   'internet':      'internet',
-  'mecanico':      'mecanicos',
+  'mecanico':      'mecanico',
   'botanas':       'botanas',
   'artesanías':    'artesanias',
   'diseño':        'diseno',
-  'hotel':         'hoteles',
-  'belleza':       'belleza-y-estetica',
-  'legal':         'servicios-legales',
-  'veterinaria':   'veterinarias',
-  'balneario':     'balnearios',
+  'hotel':         'hotel',
+  'belleza':       'belleza',
+  'legal':         'legal',
+  'veterinaria':   'veterinaria',
+  'balneario':     'balneario',
   'birria':        'birria',
-  'ensalada':      'ensaladas',
+  'ensalada':      'ensalada',
   'carpintería':   'carpinteria',
   'transporte':    'transporte',
-  'pollo':         'pollo-y-rosticerias',
-  'tapíz':         'tapiceria',
-  'joya':          'joyeria',
+  'pollo':         'pollo',
+  'tapíz':         'tapiz',
+  'joya':          'joya',
+  // Educación unificada (kind + prim + sec)
+  'kind':          'educacion',
+  'prim':          'educacion',
+  'sec':           'educacion',
+  // Nuevas categorías del v2
+  'dientes':       'dentistas',
+  'pan':           'panaderias',
+  'ham':           'hamburguesas',
+  'wash':          'autolavados',
+  'carnitas':      'carnitas',
+  'electrónica':   'electronica',
+  'flor':          'florerias',
+  'tortillas':     'tortillerias',
+  'sushi':         'sushi',
+  'trab':          'oficios',
+  'tamales':       'tamales',
+  'moda':          'ropa-y-moda',
+  'papel':         'papelerias',
+  'cel':           'celulares',
+  // Salud existente absorbe cuerpo y nutri
+  'cuerpo':        'salud',
+  'nutri':         'salud',
 };
 
 const DAY_MAP = {
@@ -90,11 +113,23 @@ function buildAddress(direccion) {
   if (!t || /^no aplica/i.test(t)) return null;
   return {
     street: t.slice(0, 200),
-    exteriorNumber: 'S/N',
-    city: 'Etzatlán',
-    state: 'Jalisco',
-    zip: '46500',
+    postalCode: '46500',
+    rawText: t.slice(0, 500),
   };
+}
+
+function buildShortDescription(servicios) {
+  const parts = (servicios || []).filter(Boolean).map((s) => String(s).trim()).filter(Boolean);
+  if (parts.length === 0) return null;
+  const joined = parts.join(' · ');
+  return joined.length > 200 ? joined.slice(0, 197) + '…' : joined;
+}
+
+function buildDescription(servicios) {
+  const parts = (servicios || []).filter(Boolean).map((s) => String(s).trim()).filter(Boolean);
+  if (parts.length === 0) return null;
+  const joined = parts.join('\n\n');
+  return joined.length > 3000 ? joined.slice(0, 2997) + '…' : joined;
 }
 
 function toTime(num) {
@@ -117,10 +152,27 @@ function buildHourRecord(dayOfWeek, raw) {
   };
 }
 
+// Regex del componente business.phone.number: ^[+]?[0-9\s\-()]{3,20}$
+const PHONE_RE = /^[+]?[0-9\s\-()]{3,20}$/;
+
+// Algunos campos del JSON (menu, logo) a veces vienen como objeto {img, link}
+// en vez de string. Coacciona a string tomando el primer valor útil.
+function coerceUrl(v) {
+  if (v == null) return null;
+  if (typeof v === 'string') return v.trim() || null;
+  if (typeof v === 'object') {
+    const candidate = v.link || v.url || v.href || v.img || null;
+    if (typeof candidate === 'string') return candidate.trim().replace(/^"+|"+$/g, '') || null;
+  }
+  return null;
+}
+
 function cleanPhone(p) {
-  if (!p) return null;
+  if (p == null) return null;
   const t = String(p).trim();
-  return t || null;
+  if (!t) return null;
+  if (!PHONE_RE.test(t)) return null;
+  return t;
 }
 
 async function findUniqueSlug(strapi, baseSlug) {
@@ -142,7 +194,7 @@ async function findUniqueSlug(strapi, baseSlug) {
   }
 }
 
-async function importBusiness(strapi, raw, categoryDocIdBySlug, stats) {
+async function importBusiness(strapi, raw, categoryDocIdBySlug, cityDocId, stats) {
   const name = (raw.nombre || '').trim();
   if (!name) {
     stats.skippedNoName++;
@@ -173,25 +225,37 @@ async function importBusiness(strapi, raw, categoryDocIdBySlug, stats) {
   }
 
   const phones = (raw.telefonos || []).map(cleanPhone).filter(Boolean);
-  const tags = (raw.servicios || []).filter(Boolean);
   const address = buildAddress(raw.direccion);
+  const shortDescription = buildShortDescription(raw.servicios);
+  const description = buildDescription(raw.servicios);
+  const hoursText = raw.horariosTexto || raw.horarioTexto || null;
 
   const data = {
     name,
     slug,
     category: categoryDocId,
-    tags,
-    phone: phones[0] || null,
-    whatsapp: phones[1] || null,
+    city: cityDocId,
+    shortDescription,
+    description,
+    phones: phones.map((num, i) => ({
+      number: num,
+      label: 'mobile',
+      isPrimary: i === 0,
+    })),
     address,
-    status: 'published',
+    logoUrl: coerceUrl(raw.logo),
+    mapEmbedUrl: coerceUrl(raw.mapa),
+    menuUrl: coerceUrl(raw.menu),
+    videoUrl: coerceUrl(raw.video),
+    hoursText,
+    businessStatus: 'published',
     ownershipStatus: 'unclaimed',
     createdByAdmin: true,
   };
 
   const business = await strapi
     .documents('api::business.business')
-    .create({ data, status: 'published' });
+    .create({ data });
 
   // Horarios
   const horarios = raw.horarios || {};
@@ -227,6 +291,17 @@ async function run() {
   const categoryDocIdBySlug = Object.fromEntries(cats.map((c) => [c.slug, c.documentId]));
   console.log(`  → ${cats.length} categorías cargadas para mapeo`);
 
+  // Todos los negocios del JSON son de Etzatlán. Cargamos su documentId una vez.
+  const etzatlanCity = await app.documents('api::city.city').findFirst({
+    filters: { slug: 'etzatlan' },
+    fields: ['documentId'],
+  });
+  if (!etzatlanCity) {
+    throw new Error("No existe la ciudad 'etzatlan' — créala primero en el panel");
+  }
+  const cityDocId = etzatlanCity.documentId;
+  console.log(`  → ciudad etzatlan cargada (documentId=${cityDocId})`);
+
   const stats = {
     created: 0,
     hoursCreated: 0,
@@ -239,10 +314,11 @@ async function run() {
   console.log('\n→ Importando negocios...');
   for (const raw of raws) {
     try {
-      await importBusiness(app, raw, categoryDocIdBySlug, stats);
+      await importBusiness(app, raw, categoryDocIdBySlug, cityDocId, stats);
     } catch (e) {
       stats.failed++;
-      console.error(`  ✗ Error con '${raw.nombre}':`, e.message);
+      const details = e.details ? JSON.stringify(e.details) : '';
+      console.error(`  ✗ Error con '${raw.nombre}': ${e.message} ${details}`);
     }
   }
 
