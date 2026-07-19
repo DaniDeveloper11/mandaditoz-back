@@ -14,7 +14,7 @@ module.exports = {
 
     const claim = await strapi.documents('api::claim.claim').findOne({
       documentId: result.documentId,
-      populate: ['business'],
+      populate: ['business', 'user', 'proof'],
     });
 
     if (!claim?.business) {
@@ -30,6 +30,12 @@ module.exports = {
     strapi.log.info(
       `[claim] Negocio ${claim.business.documentId} marcado como pending_claim`
     );
+
+    try {
+      await sendAdminClaimNotification(claim);
+    } catch (err) {
+      strapi.log.error('[claim] Error enviando aviso al admin:', err);
+    }
   },
 
   async afterUpdate(event) {
@@ -86,6 +92,58 @@ module.exports = {
     }
   },
 };
+
+function esc(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+const CLAIMANT_ROLE_LABEL = {
+  owner: 'Dueño',
+  manager: 'Encargado',
+  employee: 'Empleado',
+  other: 'Otro',
+};
+
+async function sendAdminClaimNotification(claim) {
+  const to = process.env.ADMIN_NOTIFICATION_EMAIL;
+  if (!to) {
+    strapi.log.warn(
+      '[claim.notify] ADMIN_NOTIFICATION_EMAIL no configurado; se omite email al admin'
+    );
+    return;
+  }
+
+  const from = process.env.SMTP_USER;
+  const adminBase = process.env.PUBLIC_ADMIN_URL || 'http://localhost:1337/admin';
+  const adminUrl = `${adminBase}/content-manager/collection-types/api::claim.claim/${claim.documentId}`;
+
+  const { business, user, claimantName, claimantRole, claimantPhone, notes, proof } = claim;
+  const proofCount = Array.isArray(proof) ? proof.length : 0;
+  const roleLabel = CLAIMANT_ROLE_LABEL[claimantRole] || claimantRole || '—';
+
+  const subject = `Nueva reclamación pendiente: ${business.name}`;
+  const html = `
+    <h2>Nueva reclamación de negocio</h2>
+    <p>Un usuario envió una solicitud para reclamar la propiedad de un negocio.</p>
+    <table style="border-collapse:collapse;margin:16px 0;">
+      <tr><td style="padding:4px 12px 4px 0;color:#666;">Negocio</td><td><strong>${esc(business.name)}</strong></td></tr>
+      <tr><td style="padding:4px 12px 4px 0;color:#666;">Solicitante</td><td>${esc(claimantName)}</td></tr>
+      <tr><td style="padding:4px 12px 4px 0;color:#666;">Relación</td><td>${esc(roleLabel)}</td></tr>
+      <tr><td style="padding:4px 12px 4px 0;color:#666;">Teléfono</td><td>${esc(claimantPhone)}</td></tr>
+      <tr><td style="padding:4px 12px 4px 0;color:#666;">Cuenta</td><td>${esc(user?.email || '—')}${user?.username ? ` (${esc(user.username)})` : ''}</td></tr>
+      <tr><td style="padding:4px 12px 4px 0;color:#666;">Documentos</td><td>${proofCount > 0 ? `${proofCount} archivo(s) adjunto(s)` : 'Sin adjuntos'}</td></tr>
+    </table>
+    ${notes ? `<p style="margin:0 0 4px;color:#666;">Notas del solicitante:</p><blockquote style="margin:0 0 16px;padding:8px 12px;border-left:3px solid #0EA5E9;background:#F1F5F9;">${esc(notes)}</blockquote>` : ''}
+    <p><a href="${adminUrl}" style="display:inline-block;padding:10px 20px;background:#0EA5E9;color:#fff;text-decoration:none;border-radius:6px;">Revisar en el panel</a></p>
+  `;
+
+  await strapi.plugin('email').service('email').send({ to, from, subject, html });
+  strapi.log.info(`[claim.notify] Email admin enviado (${to}) — ${claim.documentId}`);
+}
 
 async function sendClaimEmail(claim, claimStatus) {
   const { user, business, rejectionReason } = claim;

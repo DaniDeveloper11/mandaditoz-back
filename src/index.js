@@ -101,17 +101,23 @@ async function setRolePermissions(strapi, role, permissions) {
 async function enableEmailConfirmation(strapi) {
   const pluginStore = strapi.store({ type: 'plugin', name: 'users-permissions' });
   const current = (await pluginStore.get({ key: 'advanced' })) || {};
-  if (current.email_confirmation === true) return;
+
+  const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+  const desiredRedirect = `${frontendUrl}/cuenta/confirmada`;
+
+  if (current.email_confirmation === true && current.email_confirmation_redirection === desiredRedirect) {
+    return;
+  }
 
   await pluginStore.set({
     key: 'advanced',
     value: {
       ...current,
       email_confirmation: true,
-      email_confirmation_redirection: current.email_confirmation_redirection ?? null,
+      email_confirmation_redirection: desiredRedirect,
     },
   });
-  strapi.log.info('[bootstrap] Email confirmation habilitado');
+  strapi.log.info(`[bootstrap] Email confirmation habilitado, redirect: ${desiredRedirect}`);
 }
 
 module.exports = {
