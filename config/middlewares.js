@@ -1,6 +1,8 @@
 const FRONTEND_ORIGINS = [
   'http://localhost:3000',
   'https://mandaditoz-front-production.up.railway.app',
+  'https://mandaditoz.com',
+  'https://www.mandaditoz.com',
 ]
 
 module.exports = [
