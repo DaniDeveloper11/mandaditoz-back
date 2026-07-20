@@ -10,6 +10,9 @@ module.exports = ({ env }) => ({
           user: env('SMTP_USER'),
           pass: env('SMTP_PASS'),
         },
+        connectionTimeout: 15000,
+        greetingTimeout: 15000,
+        socketTimeout: 20000,
       },
       settings: {
         defaultFrom: env('SMTP_USER'),

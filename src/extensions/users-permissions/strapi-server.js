@@ -45,11 +45,9 @@ module.exports = (plugin) => {
     const dbUser = await strapi.db.query('plugin::users-permissions.user').findOne({ where: { id: newUser.id } });
     strapi.log.info(`[register-owner] DB check: hasPassword=${!!dbUser.password} provider=${dbUser.provider} confirmed=${dbUser.confirmed}`);
 
-    try {
-      await userService.sendConfirmationEmail(newUser);
-    } catch (err) {
-      strapi.log.error(`[register-owner] error enviando email de confirmacion: ${err.message}`);
-    }
+    userService.sendConfirmationEmail(newUser)
+      .then(() => strapi.log.info(`[register-owner] email enviado a ${newUser.email}`))
+      .catch((err) => strapi.log.error(`[register-owner] error enviando email a ${newUser.email}: ${err.code || ''} ${err.message}`));
 
     return ctx.send({
       message: 'Registro exitoso. Revisa tu correo para confirmar tu cuenta.',
