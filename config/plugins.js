@@ -6,6 +6,7 @@ module.exports = ({ env }) => ({
         host: 'smtp.gmail.com',
         port: 465,
         secure: true,
+        family: 4,
         auth: {
           user: env('SMTP_USER'),
           pass: env('SMTP_PASS'),
