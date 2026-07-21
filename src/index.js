@@ -5,6 +5,7 @@
 
 const PUBLIC_PERMISSIONS = {
   'api::business.business': ['find', 'findOne', 'submit'],
+  'api::contact-message.contact-message': ['submit'],
   'plugin::upload': ['content-api.upload'],
   'api::business-hour.business-hour': ['find', 'findOne'],
   'api::business-hour-exception.business-hour-exception': ['find', 'findOne'],

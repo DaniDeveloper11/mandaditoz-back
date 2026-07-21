@@ -1,0 +1,61 @@
+{
+  "kind": "collectionType",
+  "collectionName": "contact_messages",
+  "info": {
+    "singularName": "contact-message",
+    "pluralName": "contact-messages",
+    "displayName": "Contact Message",
+    "description": "Mensajes enviados desde el formulario público de contacto"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "maxLength": 120
+    },
+    "email": {
+      "type": "email",
+      "required": true
+    },
+    "phone": {
+      "type": "string",
+      "maxLength": 30
+    },
+    "subject": {
+      "type": "enumeration",
+      "enum": ["general", "negocio", "reporte", "prensa", "sugerencia"],
+      "default": "general",
+      "required": true
+    },
+    "message": {
+      "type": "text",
+      "required": true,
+      "maxLength": 2000
+    },
+    "city": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::city.city"
+    },
+    "messageStatus": {
+      "type": "enumeration",
+      "enum": ["new", "read", "answered", "archived"],
+      "default": "new",
+      "required": true
+    },
+    "sourceIp": {
+      "type": "string",
+      "maxLength": 64,
+      "private": true
+    },
+    "userAgent": {
+      "type": "string",
+      "maxLength": 300,
+      "private": true
+    }
+  }
+}
