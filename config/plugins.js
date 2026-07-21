@@ -1,24 +1,13 @@
 module.exports = ({ env }) => ({
   email: {
     config: {
-      provider: 'nodemailer',
+      provider: 'strapi-provider-email-resend',
       providerOptions: {
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false,
-        requireTLS: true,
-        family: 4,
-        auth: {
-          user: env('SMTP_USER'),
-          pass: env('SMTP_PASS'),
-        },
-        connectionTimeout: 15000,
-        greetingTimeout: 15000,
-        socketTimeout: 20000,
+        apiKey: env('RESEND_API_KEY'),
       },
       settings: {
-        defaultFrom: env('SMTP_USER'),
-        defaultReplyTo: env('SMTP_USER'),
+        defaultFrom: env('EMAIL_FROM', 'onboarding@resend.dev'),
+        defaultReplyTo: env('EMAIL_REPLY_TO', env('EMAIL_FROM', 'onboarding@resend.dev')),
       },
     },
   },

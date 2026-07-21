@@ -253,7 +253,7 @@ async function sendAdminNewSubmissionEmail(business) {
     return;
   }
 
-  const from = process.env.SMTP_USER;
+  const from = process.env.EMAIL_FROM;
   const adminBase = process.env.PUBLIC_ADMIN_URL || 'http://localhost:1337/admin';
   const adminUrl = `${adminBase}/content-manager/collection-types/api::business.business/${business.documentId}`;
 
@@ -278,7 +278,7 @@ async function sendAdminNewSubmissionEmail(business) {
 }
 
 async function sendSubmitterConfirmationEmail(business) {
-  const from = process.env.SMTP_USER;
+  const from = process.env.EMAIL_FROM;
   const subject = `Recibimos tu solicitud: ${business.name}`;
   const html = `
     <h2>¡Gracias, ${esc(business.submitterName || '')}!</h2>
@@ -298,7 +298,7 @@ async function sendSubmitterConfirmationEmail(business) {
 }
 
 async function sendSubmitterPublishedEmail(business) {
-  const from = process.env.SMTP_USER;
+  const from = process.env.EMAIL_FROM;
   const frontendBase = process.env.FRONTEND_URL || 'http://localhost:3000';
   const publicUrl = `${frontendBase}/negocios/${business.slug}`;
 

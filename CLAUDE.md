@@ -167,13 +167,15 @@ Archivo: `src/extensions/users-permissions/strapi-server.js`
 
 ---
 
-## Email (Gmail SMTP)
-Paquete instalado: `@strapi/provider-email-nodemailer`
+## Email (Resend)
+Paquete instalado: `strapi-provider-email-resend`
 Configuración: `config/plugins.js`
-Credenciales en `.env`: `SMTP_USER`, `SMTP_PASS`
+Credenciales en `.env`: `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_REPLY_TO`
 
-- `SMTP_PASS` es un **App Password de Google** (16 caracteres), NO la contraseña de Gmail
-- Se genera en: Google Account → Security → 2-Step Verification → App Passwords
+- Se usa Resend (HTTPS API) porque **Railway bloquea todos los puertos SMTP salientes** (25/465/587). Gmail SMTP falla con `ETIMEDOUT` en producción aunque funcione en local.
+- `RESEND_API_KEY` se genera en resend.com → API Keys (empieza con `re_`).
+- `EMAIL_FROM` debe ser una dirección de un dominio verificado en Resend. Para pruebas iniciales sirve `onboarding@resend.dev` (solo llega a la cuenta del dueño del API key).
+- El dominio se verifica en resend.com → Domains agregando 3 registros DNS (TXT, MX, CNAME).
 
 ### Flujos de email automáticos (requieren "Enable email confirmation" en el panel)
 | Acción | Email enviado |

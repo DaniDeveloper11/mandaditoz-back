@@ -117,7 +117,7 @@ async function sendAdminClaimNotification(claim) {
     return;
   }
 
-  const from = process.env.SMTP_USER;
+  const from = process.env.EMAIL_FROM;
   const adminBase = process.env.PUBLIC_ADMIN_URL || 'http://localhost:1337/admin';
   const adminUrl = `${adminBase}/content-manager/collection-types/api::claim.claim/${claim.documentId}`;
 
@@ -170,7 +170,7 @@ async function sendClaimEmail(claim, claimStatus) {
   try {
     await strapi.plugin('email').service('email').send({
       to: user.email,
-      from: process.env.SMTP_USER,
+      from: process.env.EMAIL_FROM,
       subject,
       html,
     });
