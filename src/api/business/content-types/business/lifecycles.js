@@ -7,6 +7,7 @@ const {
   recalcTagBusinessCount,
   getBusinessLinks,
 } = require('../../../../utils/denorm');
+const { renderBrandedEmail, esc } = require('../../../../utils/email-template');
 
 const MAX_PUBLISHED_PER_OWNER = 3;
 
@@ -236,14 +237,6 @@ async function notifyOnPublication(documentId) {
   }
 }
 
-function esc(str) {
-  return String(str ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
 async function sendAdminNewSubmissionEmail(business) {
   const to = process.env.ADMIN_NOTIFICATION_EMAIL;
   if (!to) {
@@ -258,20 +251,22 @@ async function sendAdminNewSubmissionEmail(business) {
   const adminUrl = `${adminBase}/content-manager/collection-types/api::business.business/${business.documentId}`;
 
   const subject = `Nueva solicitud pendiente: ${business.name}`;
-  const html = `
-    <h2>Nueva solicitud de publicación</h2>
-    <p>Un usuario envió una solicitud pública para publicar un negocio en el directorio.</p>
-    <table style="border-collapse:collapse;margin:16px 0;">
-      <tr><td style="padding:4px 12px 4px 0;color:#666;">Nombre</td><td><strong>${esc(business.name)}</strong></td></tr>
-      <tr><td style="padding:4px 12px 4px 0;color:#666;">Categoría</td><td>${esc(business.category?.name || '—')}</td></tr>
-      <tr><td style="padding:4px 12px 4px 0;color:#666;">Municipio</td><td>${esc(business.city?.name || '—')}</td></tr>
-      <tr><td style="padding:4px 12px 4px 0;color:#666;">Ambulante</td><td>${business.isMobile ? 'Sí' : 'No'}</td></tr>
-      <tr><td style="padding:4px 12px 4px 0;color:#666;">Enviado por</td><td>${esc(business.submitterName || '—')}</td></tr>
-      <tr><td style="padding:4px 12px 4px 0;color:#666;">Email contacto</td><td>${esc(business.submitterEmail || '—')}</td></tr>
-      <tr><td style="padding:4px 12px 4px 0;color:#666;">Teléfono contacto</td><td>${esc(business.submitterPhone || '—')}</td></tr>
-    </table>
-    <p><a href="${adminUrl}" style="display:inline-block;padding:10px 20px;background:#0EA5E9;color:#fff;text-decoration:none;border-radius:6px;">Revisar en el panel</a></p>
-  `;
+  const html = renderBrandedEmail({
+    preheader: `Nueva solicitud de publicación para ${business.name}.`,
+    title: 'Nueva solicitud de publicación',
+    greeting: 'Un usuario envió una solicitud pública para publicar un negocio en el directorio.',
+    details: [
+      { label: 'Nombre', value: `<strong>${esc(business.name)}</strong>`, raw: true },
+      { label: 'Categoría', value: business.category?.name || '—' },
+      { label: 'Municipio', value: business.city?.name || '—' },
+      { label: 'Ambulante', value: business.isMobile ? 'Sí' : 'No' },
+      { label: 'Enviado por', value: business.submitterName || '—' },
+      { label: 'Email contacto', value: business.submitterEmail || '—' },
+      { label: 'Teléfono contacto', value: business.submitterPhone || '—' },
+    ],
+    cta: { url: adminUrl, label: 'Revisar en el panel' },
+    footerNote: 'Notificación interna del admin',
+  });
 
   await strapi.plugin('email').service('email').send({ to, from, subject, html });
   strapi.log.info(`[business.notify] Email admin enviado (${to}) — ${business.documentId}`);
@@ -280,13 +275,19 @@ async function sendAdminNewSubmissionEmail(business) {
 async function sendSubmitterConfirmationEmail(business) {
   const from = process.env.EMAIL_FROM;
   const subject = `Recibimos tu solicitud: ${business.name}`;
-  const html = `
-    <h2>¡Gracias, ${esc(business.submitterName || '')}!</h2>
-    <p>Recibimos tu solicitud para publicar <strong>${esc(business.name)}</strong> en el directorio de Mandaditoz.</p>
-    <p>Un administrador revisará la información y publicará el negocio en las próximas <strong>24 a 48 horas hábiles</strong>.</p>
-    <p>Te avisaremos por este mismo correo cuando el negocio esté publicado.</p>
-    <p style="color:#666;font-size:13px;margin-top:24px;">Si necesitamos aclarar algo, te contactaremos a este email${business.submitterPhone ? ` o al teléfono ${esc(business.submitterPhone)}` : ''}.</p>
-  `;
+  const namePart = business.submitterName ? esc(business.submitterName) : 'gracias por tu tiempo';
+  const phoneNote = business.submitterPhone
+    ? ` o al teléfono ${esc(business.submitterPhone)}`
+    : '';
+
+  const html = renderBrandedEmail({
+    preheader: `Recibimos tu solicitud para publicar ${business.name}.`,
+    title: 'Recibimos tu solicitud',
+    greeting: `Hola <strong style="color:#1C1410;font-weight:600;">${namePart}</strong>, recibimos tu solicitud para publicar <strong style="color:#1C1410;font-weight:600;">${esc(business.name)}</strong> en el directorio de Mandaditoz.`,
+    body: `<p style="margin:0 0 12px 0;">Un administrador revisará la información y publicará el negocio en las próximas <strong style="color:#1C1410;">24 a 48 horas hábiles</strong>.</p>
+           <p style="margin:0;">Te avisaremos por este mismo correo cuando el negocio esté publicado.</p>`,
+    calloutHtml: `Si necesitamos aclarar algo, te contactaremos a este correo${phoneNote}.`,
+  });
 
   await strapi
     .plugin('email')
@@ -303,14 +304,15 @@ async function sendSubmitterPublishedEmail(business) {
   const publicUrl = `${frontendBase}/negocios/${business.slug}`;
 
   const subject = `¡Tu negocio "${business.name}" ya está publicado!`;
-  const html = `
-    <h2>¡Buenas noticias${business.submitterName ? `, ${esc(business.submitterName)}` : ''}!</h2>
-    <p>Tu solicitud fue aprobada y <strong>${esc(business.name)}</strong> ya está publicado en el directorio.</p>
-    <p><a href="${publicUrl}" style="display:inline-block;padding:10px 20px;background:#0EA5E9;color:#fff;text-decoration:none;border-radius:6px;">Ver la ficha del negocio</a></p>
-    <hr style="border:none;border-top:1px solid #eee;margin:24px 0;" />
-    <h3>¿Quieres administrar tu negocio?</h3>
-    <p>Crea una cuenta con este mismo email para reclamar el negocio y editar horarios, fotos y más detalles cuando quieras.</p>
-  `;
+  const namePart = business.submitterName ? `, ${esc(business.submitterName)}` : '';
+
+  const html = renderBrandedEmail({
+    preheader: `${business.name} ya está publicado en el directorio.`,
+    title: '¡Tu negocio ya está publicado!',
+    greeting: `Buenas noticias${namePart}. Tu solicitud fue aprobada y <strong style="color:#1C1410;font-weight:600;">${esc(business.name)}</strong> ya está en el directorio.`,
+    cta: { url: publicUrl, label: 'Ver la ficha del negocio' },
+    calloutHtml: `<strong style="color:#1C1410;">¿Quieres administrar tu negocio?</strong> Crea una cuenta con este mismo correo para reclamarlo y editar horarios, fotos y más detalles cuando quieras.`,
+  });
 
   await strapi
     .plugin('email')
