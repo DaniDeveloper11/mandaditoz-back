@@ -99,14 +99,19 @@ async function setRolePermissions(strapi, role, permissions) {
   }
 }
 
-async function enableEmailConfirmation(strapi) {
+async function configureAuthEmailUrls(strapi) {
   const pluginStore = strapi.store({ type: 'plugin', name: 'users-permissions' });
   const current = (await pluginStore.get({ key: 'advanced' })) || {};
 
   const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
   const desiredRedirect = `${frontendUrl}/cuenta/confirmada`;
+  const desiredResetUrl = `${frontendUrl}/cuenta/reset-password`;
 
-  if (current.email_confirmation === true && current.email_confirmation_redirection === desiredRedirect) {
+  if (
+    current.email_confirmation === true &&
+    current.email_confirmation_redirection === desiredRedirect &&
+    current.email_reset_password === desiredResetUrl
+  ) {
     return;
   }
 
@@ -116,9 +121,10 @@ async function enableEmailConfirmation(strapi) {
       ...current,
       email_confirmation: true,
       email_confirmation_redirection: desiredRedirect,
+      email_reset_password: desiredResetUrl,
     },
   });
-  strapi.log.info(`[bootstrap] Email confirmation habilitado, redirect: ${desiredRedirect}`);
+  strapi.log.info(`[bootstrap] Email URLs configuradas: confirm→${desiredRedirect} reset→${desiredResetUrl}`);
 }
 
 module.exports = {
@@ -134,7 +140,7 @@ module.exports = {
       await setRolePermissions(strapi, authenticatedRole, AUTHENTICATED_PERMISSIONS);
       await setRolePermissions(strapi, ownerRole, BUSINESS_OWNER_PERMISSIONS);
 
-      await enableEmailConfirmation(strapi);
+      await configureAuthEmailUrls(strapi);
     } catch (err) {
       strapi.log.error('[bootstrap] error:', err);
     }
