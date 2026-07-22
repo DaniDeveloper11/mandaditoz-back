@@ -7,6 +7,7 @@ const FRONTEND_ORIGINS = [
 
 module.exports = [
   'strapi::logger',
+  'global::translate-errors',
   'strapi::errors',
   {
     name: 'strapi::security',
