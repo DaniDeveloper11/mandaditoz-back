@@ -105,7 +105,7 @@ async function configureAuthEmailUrls(strapi) {
 
   const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
   const desiredRedirect = `${frontendUrl}/cuenta/confirmada`;
-  const desiredResetUrl = `${frontendUrl}/cuenta/reset-password`;
+  const desiredResetUrl = `${frontendUrl}/reset-password`;
 
   if (
     current.email_confirmation === true &&
