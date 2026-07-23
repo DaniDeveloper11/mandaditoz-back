@@ -680,6 +680,8 @@ export interface ApiBusinessBusiness extends Struct.CollectionTypeSchema {
         number
       > &
       Schema.Attribute.DefaultTo<0>;
+    visibleInAllCities: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
     website: Schema.Attribute.String;
   };
 }

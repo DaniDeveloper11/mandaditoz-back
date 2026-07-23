@@ -133,6 +133,11 @@
       "default": false,
       "description": "Negocio ambulante o sin ubicación fija"
     },
+    "visibleInAllCities": {
+      "type": "boolean",
+      "default": false,
+      "description": "Si es true, el negocio aparece en las búsquedas de cualquier municipio, no solo en su city base."
+    },
     "isVerified": {
       "type": "boolean",
       "default": false

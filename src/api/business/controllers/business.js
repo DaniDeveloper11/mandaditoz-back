@@ -48,6 +48,7 @@ module.exports = factories.createCoreController('api::business.business', ({ str
     const cityId = body.city ?? body.cityDocumentId ?? null;
     const phones = Array.isArray(body.phones) ? body.phones : [];
     const isMobile = !!body.isMobile;
+    const visibleInAllCities = !!body.visibleInAllCities;
     const address = isMobile ? null : (body.address ?? null);
     const submitterName = String(body.submitterName ?? '').trim();
     const submitterEmail = String(body.submitterEmail ?? '').trim();
@@ -85,6 +86,7 @@ module.exports = factories.createCoreController('api::business.business', ({ str
       phones,
       address,
       isMobile,
+      visibleInAllCities,
       paymentMethods: Array.isArray(body.paymentMethods) && body.paymentMethods.length ? body.paymentMethods : null,
       logo: body.logo ?? null,
       menuPdf: body.menuPdf ?? null,
