@@ -61,6 +61,25 @@
       "type": "integer",
       "default": 0,
       "min": 0
+    },
+    "blogUrl": {
+      "type": "string",
+      "regex": "^https?://.+",
+      "description": "URL del blog oficial del creador de contenido asignado a la ciudad"
+    },
+    "bloggerName": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "bloggerBio": {
+      "type": "text",
+      "maxLength": 300
+    },
+    "bloggerAvatar": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["images"]
     }
   }
 }

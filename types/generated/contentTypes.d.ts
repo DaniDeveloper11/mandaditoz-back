@@ -778,6 +778,16 @@ export interface ApiCityCity extends Struct.CollectionTypeSchema {
     draftAndPublish: false;
   };
   attributes: {
+    bloggerAvatar: Schema.Attribute.Media<'images'>;
+    bloggerBio: Schema.Attribute.Text &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 300;
+      }>;
+    bloggerName: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 120;
+      }>;
+    blogUrl: Schema.Attribute.String;
     boundingRadiusKm: Schema.Attribute.Decimal &
       Schema.Attribute.SetMinMax<
         {
