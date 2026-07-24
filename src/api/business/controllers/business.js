@@ -61,8 +61,13 @@ module.exports = factories.createCoreController('api::business.business', ({ str
     if (!submitterName) return ctx.badRequest('Nombre del contacto requerido');
     if (!/^[^@]+@[^@]+\.[^@]+$/.test(submitterEmail)) return ctx.badRequest('Email del contacto inválido');
     if (body.email && !/^[^@]+@[^@]+\.[^@]+$/.test(body.email)) return ctx.badRequest('Email del negocio inválido');
-    if (body.website && !/^https?:\/\/[^\s]+\.[^\s]+$/.test(body.website)) return ctx.badRequest('Sitio web inválido');
     if (body.termsAccepted !== true) return ctx.badRequest('Debes aceptar los Términos y la Política de privacidad');
+
+    const socialLinks = Array.isArray(body.socialLinks)
+      ? body.socialLinks
+          .filter(s => s?.platform && s?.url && /^https?:\/\/.+$/.test(s.url))
+          .map(s => ({ platform: s.platform, url: s.url }))
+      : [];
 
     const slugify = (str) =>
       String(str ?? '')
@@ -80,7 +85,7 @@ module.exports = factories.createCoreController('api::business.business', ({ str
       shortDescription: body.shortDescription || null,
       description: body.description || null,
       email: body.email || null,
-      website: body.website || null,
+      socialLinks: socialLinks.length ? socialLinks : undefined,
       category: categoryId,
       city: cityId,
       phones,
