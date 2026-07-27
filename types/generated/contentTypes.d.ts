@@ -440,6 +440,46 @@ export interface AdminUser extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiBusinessEventBusinessEvent
+  extends Struct.CollectionTypeSchema {
+  collectionName: 'business_events';
+  info: {
+    description: 'Eventos de tr\u00E1fico por negocio (vistas, clics en tel\u00E9fono/WhatsApp)';
+    displayName: 'Business Event';
+    pluralName: 'business-events';
+    singularName: 'business-event';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    business: Schema.Attribute.Relation<'manyToOne', 'api::business.business'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::business-event.business-event'
+    > &
+      Schema.Attribute.Private;
+    occurredAt: Schema.Attribute.DateTime & Schema.Attribute.Required;
+    publishedAt: Schema.Attribute.DateTime;
+    sessionId: Schema.Attribute.String &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+      }>;
+    type: Schema.Attribute.Enumeration<
+      ['profile_view', 'phone_click', 'whatsapp_click']
+    > &
+      Schema.Attribute.Required;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
 export interface ApiBusinessHourExceptionBusinessHourException
   extends Struct.CollectionTypeSchema {
   collectionName: 'business_hour_exceptions';
@@ -1814,6 +1854,7 @@ declare module '@strapi/strapi' {
       'admin::transfer-token': AdminTransferToken;
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
+      'api::business-event.business-event': ApiBusinessEventBusinessEvent;
       'api::business-hour-exception.business-hour-exception': ApiBusinessHourExceptionBusinessHourException;
       'api::business-hour.business-hour': ApiBusinessHourBusinessHour;
       'api::business.business': ApiBusinessBusiness;

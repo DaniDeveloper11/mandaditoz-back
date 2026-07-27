@@ -5,6 +5,7 @@
 
 const PUBLIC_PERMISSIONS = {
   'api::business.business': ['find', 'findOne', 'submit'],
+  'api::business-event.business-event': ['track'],
   'api::contact-message.contact-message': ['submit'],
   'plugin::upload': ['content-api.upload'],
   'api::business-hour.business-hour': ['find', 'findOne'],
@@ -31,6 +32,7 @@ const PUBLIC_PERMISSIONS = {
 
 const AUTHENTICATED_PERMISSIONS = {
   'api::business.business': ['update', 'delete', 'mine'],
+  'api::business-event.business-event': ['statsForBusiness'],
   'api::category.category': ['find', 'findOne'],
   'api::city.city': ['find', 'findOne'],
   'api::neighborhood.neighborhood': ['find', 'findOne'],
@@ -46,6 +48,7 @@ const AUTHENTICATED_PERMISSIONS = {
 
 const BUSINESS_OWNER_PERMISSIONS = {
   'api::business.business': ['create', 'find', 'findOne', 'update', 'delete', 'mine'],
+  'api::business-event.business-event': ['statsForBusiness'],
   'api::business-hour.business-hour': ['create', 'update', 'delete', 'find', 'findOne'],
   'api::business-hour-exception.business-hour-exception': ['create', 'update', 'delete', 'find', 'findOne'],
   'api::category.category': ['find', 'findOne'],

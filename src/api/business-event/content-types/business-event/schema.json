@@ -1,0 +1,36 @@
+{
+  "kind": "collectionType",
+  "collectionName": "business_events",
+  "info": {
+    "singularName": "business-event",
+    "pluralName": "business-events",
+    "displayName": "Business Event",
+    "description": "Eventos de tráfico por negocio (vistas, clics en teléfono/WhatsApp)"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "business": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::business.business"
+    },
+    "type": {
+      "type": "enumeration",
+      "enum": ["profile_view", "phone_click", "whatsapp_click"],
+      "required": true
+    },
+    "sessionId": {
+      "type": "string",
+      "maxLength": 64,
+      "private": true
+    },
+    "occurredAt": {
+      "type": "datetime",
+      "required": true,
+      "description": "Fecha/hora del evento. Usualmente = createdAt, pero editable para seed histórico."
+    }
+  }
+}
