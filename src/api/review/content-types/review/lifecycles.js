@@ -51,6 +51,22 @@ function scheduleRecalc(businessId) {
 }
 
 module.exports = {
+  async beforeCreate(event) {
+    const { data } = event.params;
+    if (!data) return;
+
+    // Inyecta author desde el request context autenticado.
+    // Se hace aquí (no en el controller) para que la validación de content-API
+    // no rechace la key "author" antes de llegar al Document Service.
+    if (!data.author) {
+      const ctx = strapi.requestContext.get();
+      const userId = ctx?.state?.user?.id;
+      if (userId) data.author = userId;
+    }
+
+    if (!data.reviewStatus) data.reviewStatus = 'published';
+  },
+
   async beforeUpdate(event) {
     const { data } = event.params;
     if (data && ('comment' in data || 'title' in data || 'rating' in data)) {
