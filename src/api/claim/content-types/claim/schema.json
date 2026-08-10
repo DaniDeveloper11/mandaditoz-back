@@ -67,6 +67,19 @@
     "rejectionReason": {
       "type": "text",
       "maxLength": 500
+    },
+    "origin": {
+      "type": "enumeration",
+      "enum": ["manual", "outreach"],
+      "default": "manual",
+      "required": true,
+      "description": "manual = usuario reclamó desde el perfil del negocio; outreach = vino desde el link del WhatsApp de outreach"
+    },
+    "outreachPhone": {
+      "type": "string",
+      "private": true,
+      "maxLength": 20,
+      "description": "Número de WhatsApp al que se envió el outreach (para auditoría, solo si origin=outreach)"
     }
   }
 }

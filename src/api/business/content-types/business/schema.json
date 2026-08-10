@@ -272,6 +272,41 @@
     "archivedAt": {
       "type": "datetime",
       "description": "Soft delete: si no es null, el negocio está archivado"
+    },
+    "lastOutreachAt": {
+      "type": "datetime",
+      "private": true,
+      "description": "Última vez que el bot de outreach (n8n) intentó contactar al negocio por WhatsApp"
+    },
+    "outreachCount": {
+      "type": "integer",
+      "default": 0,
+      "min": 0,
+      "private": true,
+      "description": "Cantidad de veces que se ha contactado al negocio para invitarlo a reclamar su perfil"
+    },
+    "outreachOptOut": {
+      "type": "boolean",
+      "default": false,
+      "private": true,
+      "description": "Si el negocio respondió BAJA por WhatsApp, no volver a contactar"
+    },
+    "outreachToken": {
+      "type": "string",
+      "private": true,
+      "unique": true,
+      "description": "Token random generado por n8n en cada outreach. Usado para validar el link /reclamar/:slug?t=..."
+    },
+    "outreachTokenExpiresAt": {
+      "type": "datetime",
+      "private": true,
+      "description": "Fecha en la que el outreachToken deja de ser válido (típicamente +30 días desde su generación)"
+    },
+    "outreachPhone": {
+      "type": "string",
+      "private": true,
+      "maxLength": 20,
+      "description": "Número WhatsApp (E.164) al que se envió el último outreach. Usado como claimantPhone si el usuario reclama desde el link del WA."
     }
   }
 }
