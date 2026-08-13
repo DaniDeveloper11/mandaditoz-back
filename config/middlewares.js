@@ -3,6 +3,8 @@ const FRONTEND_ORIGINS = [
   'https://mandaditoz-front-production.up.railway.app',
   'https://mandaditoz.com',
   'https://www.mandaditoz.com',
+  'https://localhost',
+  'capacitor://localhost',
 ]
 
 module.exports = [
