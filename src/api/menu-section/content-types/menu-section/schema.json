@@ -1,0 +1,50 @@
+{
+  "kind": "collectionType",
+  "collectionName": "menu_sections",
+  "info": {
+    "singularName": "menu-section",
+    "pluralName": "menu-sections",
+    "displayName": "Menu Section",
+    "description": "Sección del menú de un negocio (ej. Tacos, Bebidas)"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "minLength": 2,
+      "maxLength": 80
+    },
+    "description": {
+      "type": "text",
+      "maxLength": 300
+    },
+    "order": {
+      "type": "integer",
+      "default": 0
+    },
+    "isActive": {
+      "type": "boolean",
+      "default": true
+    },
+    "business": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::business.business",
+      "inversedBy": "menuSections"
+    },
+    "items": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::menu-item.menu-item",
+      "mappedBy": "section"
+    },
+    "archivedAt": {
+      "type": "datetime",
+      "description": "Soft delete: si no es null, la sección está archivada"
+    }
+  }
+}

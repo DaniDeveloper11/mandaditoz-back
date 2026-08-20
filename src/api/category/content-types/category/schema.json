@@ -56,6 +56,11 @@
       "default": false,
       "description": "Se muestra en el carrusel de landing"
     },
+    "isOrderable": {
+      "type": "boolean",
+      "default": false,
+      "description": "Categoría de comida/bebida: sus negocios pueden tener menú estructurado y (más adelante) recibir pedidos."
+    },
     "parent": {
       "type": "relation",
       "relation": "manyToOne",

@@ -180,6 +180,18 @@
       "required": false,
       "allowedTypes": ["images"]
     },
+    "menuSections": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::menu-section.menu-section",
+      "mappedBy": "business"
+    },
+    "menuItems": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::menu-item.menu-item",
+      "mappedBy": "business"
+    },
     "videoUrl": {
       "type": "text"
     },

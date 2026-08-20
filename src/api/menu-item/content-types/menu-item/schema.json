@@ -1,0 +1,66 @@
+{
+  "kind": "collectionType",
+  "collectionName": "menu_items",
+  "info": {
+    "singularName": "menu-item",
+    "pluralName": "menu-items",
+    "displayName": "Menu Item",
+    "description": "Platillo o producto del menú de un negocio"
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "minLength": 2,
+      "maxLength": 120
+    },
+    "description": {
+      "type": "text",
+      "maxLength": 500
+    },
+    "price": {
+      "type": "decimal",
+      "required": true,
+      "min": 0
+    },
+    "photo": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["images"]
+    },
+    "isAvailable": {
+      "type": "boolean",
+      "default": true
+    },
+    "isFeatured": {
+      "type": "boolean",
+      "default": false
+    },
+    "order": {
+      "type": "integer",
+      "default": 0
+    },
+    "section": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::menu-section.menu-section",
+      "inversedBy": "items"
+    },
+    "business": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::business.business",
+      "inversedBy": "menuItems",
+      "description": "Denormalizado desde section.business por lifecycle. No setear a mano."
+    },
+    "archivedAt": {
+      "type": "datetime",
+      "description": "Soft delete: si no es null, el platillo está archivado"
+    }
+  }
+}

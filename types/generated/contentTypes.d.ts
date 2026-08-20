@@ -629,7 +629,15 @@ export interface ApiBusinessBusiness extends Struct.CollectionTypeSchema {
     logoUrl: Schema.Attribute.Text;
     mapEmbedUrl: Schema.Attribute.Text;
     menuImages: Schema.Attribute.Media<'images', true>;
+    menuItems: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::menu-item.menu-item'
+    >;
     menuPdf: Schema.Attribute.Media<'files'>;
+    menuSections: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::menu-section.menu-section'
+    >;
     menuUrl: Schema.Attribute.Text;
     name: Schema.Attribute.String &
       Schema.Attribute.Required &
@@ -774,6 +782,7 @@ export interface ApiCategoryCategory extends Struct.CollectionTypeSchema {
       }>;
     isActive: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
     isFeatured: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    isOrderable: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -994,6 +1003,105 @@ export interface ApiContactMessageContactMessage
       Schema.Attribute.SetMinMaxLength<{
         maxLength: 300;
       }>;
+  };
+}
+
+export interface ApiMenuItemMenuItem extends Struct.CollectionTypeSchema {
+  collectionName: 'menu_items';
+  info: {
+    description: 'Platillo o producto del men\u00FA de un negocio';
+    displayName: 'Menu Item';
+    pluralName: 'menu-items';
+    singularName: 'menu-item';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    archivedAt: Schema.Attribute.DateTime;
+    business: Schema.Attribute.Relation<'manyToOne', 'api::business.business'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.Text &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 500;
+      }>;
+    isAvailable: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    isFeatured: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::menu-item.menu-item'
+    > &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 120;
+        minLength: 2;
+      }>;
+    order: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    photo: Schema.Attribute.Media<'images'>;
+    price: Schema.Attribute.Decimal &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      >;
+    publishedAt: Schema.Attribute.DateTime;
+    section: Schema.Attribute.Relation<
+      'manyToOne',
+      'api::menu-section.menu-section'
+    >;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+  };
+}
+
+export interface ApiMenuSectionMenuSection extends Struct.CollectionTypeSchema {
+  collectionName: 'menu_sections';
+  info: {
+    description: 'Secci\u00F3n del men\u00FA de un negocio (ej. Tacos, Bebidas)';
+    displayName: 'Menu Section';
+    pluralName: 'menu-sections';
+    singularName: 'menu-section';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    archivedAt: Schema.Attribute.DateTime;
+    business: Schema.Attribute.Relation<'manyToOne', 'api::business.business'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.Text &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 300;
+      }>;
+    isActive: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<true>;
+    items: Schema.Attribute.Relation<'oneToMany', 'api::menu-item.menu-item'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::menu-section.menu-section'
+    > &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 80;
+        minLength: 2;
+      }>;
+    order: Schema.Attribute.Integer & Schema.Attribute.DefaultTo<0>;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
   };
 }
 
@@ -1862,6 +1970,8 @@ declare module '@strapi/strapi' {
       'api::city.city': ApiCityCity;
       'api::claim.claim': ApiClaimClaim;
       'api::contact-message.contact-message': ApiContactMessageContactMessage;
+      'api::menu-item.menu-item': ApiMenuItemMenuItem;
+      'api::menu-section.menu-section': ApiMenuSectionMenuSection;
       'api::neighborhood.neighborhood': ApiNeighborhoodNeighborhood;
       'api::photo.photo': ApiPhotoPhoto;
       'api::report.report': ApiReportReport;
