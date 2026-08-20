@@ -1,5 +1,14 @@
 'use strict';
 
-const { createCoreRouter } = require('@strapi/strapi').factories;
+const { factories } = require('@strapi/strapi');
 
-module.exports = createCoreRouter('api::menu-section.menu-section');
+module.exports = factories.createCoreRouter('api::menu-section.menu-section', {
+  config: {
+    update: {
+      policies: ['api::menu-section.is-business-owner'],
+    },
+    delete: {
+      policies: ['api::menu-section.is-business-owner'],
+    },
+  },
+});

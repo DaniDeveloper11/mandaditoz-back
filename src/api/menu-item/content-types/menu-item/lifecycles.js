@@ -1,5 +1,7 @@
 'use strict';
 
+const { extractRelationRef, refToWhere } = require('../../../../utils/menu-ownership');
+
 /**
  * El `business` de un platillo NO se setea a mano: se deriva siempre de
  * `section.business`. Así el denormalizado no puede desincronizarse y la
@@ -10,47 +12,12 @@
  * request context e ignora lo que mande el cliente.
  */
 
-/**
- * Normaliza las formas en que puede llegar una relación en `data`:
- * id numérico, documentId string, `{ connect: [...] }` (admin panel),
- * `{ set: [...] }`, o un objeto entidad.
- * Devuelve `undefined` si no viene, `null` si se está desconectando.
- */
-function extractRelationRef(value) {
-  if (value === undefined) return undefined;
-  if (value === null || value === '') return null;
-
-  if (Array.isArray(value)) return extractRelationRef(value[0] ?? null);
-
-  if (typeof value === 'object') {
-    if ('connect' in value || 'set' in value || 'disconnect' in value) {
-      const next = value.set ?? value.connect;
-      if (Array.isArray(next)) {
-        if (next.length === 0) return null;
-        return extractRelationRef(next[0]);
-      }
-      if (next != null) return extractRelationRef(next);
-      return null;
-    }
-    if (value.id != null) return value.id;
-    if (value.documentId != null) return value.documentId;
-    return null;
-  }
-
-  return value;
-}
-
-/** Busca la sección por id numérico o por documentId, y devuelve su business.id. */
+/** Busca la sección por id numérico o documentId y devuelve su business.id. */
 async function resolveBusinessIdFromSection(sectionRef) {
   if (sectionRef == null) return null;
 
-  const asNumber = Number(sectionRef);
-  const where = Number.isInteger(asNumber) && String(asNumber) === String(sectionRef)
-    ? { id: asNumber }
-    : { documentId: String(sectionRef) };
-
   const section = await strapi.db.query('api::menu-section.menu-section').findOne({
-    where,
+    where: refToWhere(sectionRef),
     select: ['id'],
     populate: { business: { select: ['id'] } },
   });
@@ -82,13 +49,7 @@ async function syncBusinessFromSection(event, { lookupCurrentSection = false } =
     sectionRef = await getCurrentSectionRef(event.params.where);
   }
 
-  const businessId = await resolveBusinessIdFromSection(sectionRef);
-
-  if (businessId) {
-    data.business = businessId;
-  } else {
-    data.business = null;
-  }
+  data.business = await resolveBusinessIdFromSection(sectionRef);
 }
 
 module.exports = {
