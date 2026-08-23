@@ -1,4 +1,4 @@
-const FRONTEND_ORIGINS = [
+const DEFAULT_FRONTEND_ORIGINS = [
   'http://localhost:3000',
   'https://mandaditoz-front-production.up.railway.app',
   'https://mandaditoz.com',
@@ -6,6 +6,10 @@ const FRONTEND_ORIGINS = [
   'https://localhost',
   'capacitor://localhost',
 ]
+
+const FRONTEND_ORIGINS = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
+  : DEFAULT_FRONTEND_ORIGINS
 
 module.exports = [
   'strapi::logger',
