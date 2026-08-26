@@ -16,7 +16,7 @@ const PUBLIC_PERMISSIONS = {
   'api::photo.photo': ['find', 'findOne'],
   'api::menu-section.menu-section': ['find', 'findOne'],
   'api::menu-item.menu-item': ['find', 'findOne'],
-  'api::review.review': ['find', 'findOne'],
+  'api::review.review': ['find', 'findOne', 'submit'],
   'api::state.state': ['find', 'findOne'],
   'api::tag.tag': ['find', 'findOne'],
   'plugin::users-permissions.auth': [

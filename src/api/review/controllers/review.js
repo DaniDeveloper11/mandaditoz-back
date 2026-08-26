@@ -14,6 +14,36 @@ function extractRelationId(raw) {
   return null;
 }
 
+function getClientIp(ctx) {
+  const forwarded = ctx.request.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.length) {
+    return forwarded.split(',')[0].trim();
+  }
+  return ctx.request.ip || 'unknown';
+}
+
+// Whitelist de campos escalares que salen por GET /reviews. El find de abajo
+// no pasa por sanitizeOutput (ver nota ahi), asi que `private: true` en el
+// schema no basta: guestEmail, sourceIp y userAgent solo quedan fuera porque
+// no estan en esta lista. Agregar campos nuevos aqui solo si son publicos.
+// Unicos campos del user que pueden salir junto a una resena. El id se expone
+// a proposito: el frontend lo usa para saber si la resena es del usuario actual.
+const AUTHOR_PUBLIC_FIELDS = ['id', 'username', 'displayName'];
+
+const PUBLIC_REVIEW_FIELDS = [
+  'id',
+  'documentId',
+  'rating',
+  'title',
+  'comment',
+  'visitDate',
+  'helpfulCount',
+  'editedAt',
+  'createdAt',
+  'reviewStatus',
+  'guestName',
+];
+
 async function resolveBusinessRow(raw) {
   const id = extractRelationId(raw);
   if (!id) return null;
@@ -93,10 +123,15 @@ module.exports = factories.createCoreController('api::review.review', ({ strapi 
       filters.reviewStatus = { $ne: 'removed' };
     }
 
-    const populate = query.populate ?? {
-      author: { fields: ['id', 'username', 'displayName'], populate: { avatar: true } },
+    // El populate NO se toma del query string. Antes se hacia
+    // `query.populate ?? {...}` y bastaba con pedir `populate[author]=true`
+    // para que la API devolviera el user completo — email, phone,
+    // confirmationToken y el hash de password — porque este find no pasa por
+    // sanitizeOutput. Se fuerza siempre esta forma segura.
+    const populate = {
+      author: { fields: AUTHOR_PUBLIC_FIELDS, populate: { avatar: true } },
       photos: true,
-      response: { populate: { respondedBy: { fields: ['id', 'displayName'] } } },
+      response: { populate: { respondedBy: { fields: AUTHOR_PUBLIC_FIELDS } } },
       business: { fields: ['id', 'documentId'] },
     };
 
@@ -106,6 +141,7 @@ module.exports = factories.createCoreController('api::review.review', ({ strapi 
     const [entries, total] = await Promise.all([
       strapi.documents('api::review.review').findMany({
         filters,
+        fields: PUBLIC_REVIEW_FIELDS,
         populate,
         sort,
         pagination,
@@ -127,6 +163,105 @@ module.exports = factories.createCoreController('api::review.review', ({ strapi 
         },
       },
     };
+  },
+
+  // POST /api/reviews/submit — publico, sin cuenta.
+  // Siempre entra como reviewStatus='pending': no cuenta para el rating del
+  // negocio hasta que un admin la apruebe desde Strapi (recalcBusinessRating
+  // solo promedia reviews con review_status='published').
+  async submit(ctx) {
+    const body = ctx.request.body?.data ?? {};
+
+    // Honeypot: campo invisible en el form. Si viene lleno es un bot —
+    // respondemos ok para no darle señal de que lo detectamos.
+    if (String(body.website ?? '').trim() !== '') {
+      strapi.log.warn(`[review.submit] honeypot activado desde ${getClientIp(ctx)}`);
+      return (ctx.body = { ok: true, pending: true });
+    }
+
+    const rating = Number(body.rating);
+    const guestName = String(body.guestName ?? '').trim();
+    const guestEmail = String(body.guestEmail ?? '').trim().toLowerCase();
+    const title = String(body.title ?? '').trim();
+    const comment = String(body.comment ?? '').trim();
+    const visitDate = String(body.visitDate ?? '').trim();
+
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return ctx.badRequest('Calificación inválida');
+    }
+    if (guestName.length < 2 || guestName.length > 60) {
+      return ctx.badRequest('Nombre inválido');
+    }
+    if (guestEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(guestEmail)) {
+      return ctx.badRequest('Email inválido');
+    }
+    if (comment.length < 10) return ctx.badRequest('La reseña es demasiado corta');
+    if (comment.length > 1500) return ctx.badRequest('La reseña es demasiado larga');
+    if (title.length > 100) return ctx.badRequest('El título es demasiado largo');
+    if (visitDate && !/^\d{4}-\d{2}-\d{2}$/.test(visitDate)) {
+      return ctx.badRequest('Fecha de visita inválida');
+    }
+
+    const photos = Array.isArray(body.photos)
+      ? body.photos.map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 6)
+      : [];
+
+    const business = await resolveBusinessRow(body.business);
+    if (!business) return ctx.badRequest('Negocio no encontrado');
+    if (business.businessStatus !== 'published') {
+      return ctx.badRequest('No puedes reseñar un negocio no publicado');
+    }
+
+    // Sin cuenta no hay identidad estable: lo mas cercano es la IP. Una reseña
+    // por negocio por IP cada 24h, además del rate limit global de la ruta.
+    const sourceIp = getClientIp(ctx);
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recent = await strapi.db.query('api::review.review').findOne({
+      where: { sourceIp, business: business.id, createdAt: { $gt: since } },
+    });
+    if (recent) {
+      return ctx.conflict('Ya enviaste una reseña para este negocio hace poco');
+    }
+
+    const created = await strapi.documents('api::review.review').create({
+      data: {
+        business: business.id,
+        author: null,
+        guestName,
+        guestEmail: guestEmail || null,
+        rating,
+        title: title || null,
+        comment,
+        visitDate: visitDate || null,
+        photos: photos.length ? photos : undefined,
+        reviewStatus: 'pending',
+        sourceIp,
+        userAgent: String(ctx.request.headers['user-agent'] ?? '').slice(0, 300),
+      },
+    });
+
+    const to = process.env.CONTACT_INBOX || process.env.EMAIL_REPLY_TO || process.env.EMAIL_FROM;
+    if (to) {
+      try {
+        await strapi.plugin('email').service('email').send({
+          to,
+          ...(guestEmail ? { replyTo: guestEmail } : {}),
+          subject: `[Mandaditoz] Reseña por aprobar — ${business.name}`,
+          text:
+            `Negocio: ${business.name}\n` +
+            `Autor: ${guestName}${guestEmail ? ` <${guestEmail}>` : ' (sin email)'}\n` +
+            `Calificación: ${rating}/5\n` +
+            `IP: ${sourceIp}\n\n` +
+            `${title ? `Título: ${title}\n\n` : ''}` +
+            `${comment}\n\n` +
+            `Aprobar en el admin: Content Manager → Review → reviewStatus = published\n`,
+        });
+      } catch (err) {
+        strapi.log.warn(`[review.submit] no se pudo enviar el aviso de moderación: ${err.message}`);
+      }
+    }
+
+    ctx.body = { ok: true, pending: true, documentId: created.documentId };
   },
 
   async respond(ctx) {

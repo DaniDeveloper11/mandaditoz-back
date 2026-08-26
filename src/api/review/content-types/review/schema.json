@@ -24,6 +24,26 @@
       "target": "plugin::users-permissions.user",
       "inversedBy": "reviews"
     },
+    "guestName": {
+      "type": "string",
+      "maxLength": 60,
+      "description": "Nombre publico del autor cuando la resena se envio sin cuenta"
+    },
+    "guestEmail": {
+      "type": "email",
+      "private": true,
+      "description": "Contacto opcional del autor invitado. Privado: nunca sale por la API"
+    },
+    "sourceIp": {
+      "type": "string",
+      "maxLength": 64,
+      "private": true
+    },
+    "userAgent": {
+      "type": "string",
+      "maxLength": 300,
+      "private": true
+    },
     "rating": {
       "type": "integer",
       "required": true,
