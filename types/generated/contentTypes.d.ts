@@ -602,6 +602,13 @@ export interface ApiBusinessBusiness extends Struct.CollectionTypeSchema {
         maxLength: 3000;
       }>;
     email: Schema.Attribute.Email;
+    featuredOrder: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 1;
+        },
+        number
+      >;
     featuredUntil: Schema.Attribute.DateTime;
     geo: Schema.Attribute.Component<'shared.geo', false>;
     hourExceptions: Schema.Attribute.Relation<

@@ -7,7 +7,7 @@ module.exports = {
         const [{ rowCount }] = await Promise.all([
           strapi.db.connection.raw(
             `UPDATE businesses
-             SET is_featured = false
+             SET is_featured = false, featured_order = NULL
              WHERE is_featured = true
                AND featured_until IS NOT NULL
                AND featured_until < NOW()`

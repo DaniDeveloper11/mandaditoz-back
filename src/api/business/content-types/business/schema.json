@@ -152,6 +152,11 @@
     "featuredUntil": {
       "type": "datetime"
     },
+    "featuredOrder": {
+      "type": "integer",
+      "min": 1,
+      "description": "Posicion manual en los carruseles de destacados: 1 = primero. Vacio = se ordena por rating al final de los numerados"
+    },
     "priceLevel": {
       "type": "enumeration",
       "enum": ["free", "budget", "moderate", "upscale", "luxury"],
