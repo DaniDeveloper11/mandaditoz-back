@@ -197,6 +197,50 @@
       "target": "api::menu-item.menu-item",
       "mappedBy": "business"
     },
+    "acceptsOrders": {
+      "type": "boolean",
+      "default": false,
+      "description": "Interruptor maestro: si es false el negocio no aparece como pedible."
+    },
+    "ordersPausedUntil": {
+      "type": "datetime",
+      "description": "Pausa temporal (\"hoy ya no\") sin tener que apagar acceptsOrders y olvidarse de reactivarlo."
+    },
+    "fulfillmentModes": {
+      "type": "json",
+      "description": "Array de strings: pickup, delivery. El negocio entrega o el cliente recoge; Mandaditoz no hace logística."
+    },
+    "deliveryFeeCents": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
+    },
+    "minOrderCents": {
+      "type": "integer",
+      "default": 0,
+      "min": 0
+    },
+    "prepTimeMinutes": {
+      "type": "integer",
+      "default": 20,
+      "min": 0,
+      "max": 240
+    },
+    "orderNotifyEmail": {
+      "type": "email",
+      "description": "A dónde llega el aviso de pedido nuevo. Si está vacío cae al email del negocio."
+    },
+    "orderNotifyPhone": {
+      "type": "string",
+      "maxLength": 20,
+      "description": "A dónde va el link mágico por WhatsApp (Fase 5). Va aparte de phones[] porque el teléfono público del changarro no siempre es el celular de quien acepta pedidos."
+    },
+    "orders": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::order.order",
+      "mappedBy": "business"
+    },
     "videoUrl": {
       "type": "text"
     },

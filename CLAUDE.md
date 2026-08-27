@@ -261,6 +261,81 @@ publicar su propio negocio y el lifecycle lo asciende en ese momento.
 
 ---
 
+## Pedidos (Fase 4)
+
+### Reglas que no se negocian
+
+1. **El precio nunca viene del cliente.** `src/api/order/services/order-pricing.js`
+   relee los `menu-item` de la base y arma el total. El body solo aporta QUÉ y CUÁNTOS.
+2. **Todo el dinero en centavos enteros.** El `decimal` de Strapi es `double precision`:
+   89.90 × 3 en flotante da 269.70000000000005.
+3. **Las líneas son un snapshot, no una relación.** Componente `order.line` con el nombre
+   y el precio del momento. Si el negocio sube el precio o borra el platillo, el pedido
+   histórico no cambia.
+4. **`orderStatus`, nunca `status`** (reservado en Strapi 5).
+5. **Para pedir hay que tener cuenta.** `POST /orders` exige `ctx.state.user`; el rol
+   `Public` no tiene ninguna acción de `order`.
+
+### Rutas
+
+| Ruta | Quién | Nota |
+|---|---|---|
+| `POST /orders` | comensal con sesión | valida negocio, horario, mínimo, modalidad y disponibilidad |
+| `GET /orders` | comensal | solo los suyos; **no usa `super.find`** (ver abajo) |
+| `GET /orders/:id` | comensal dueño del pedido, o dueño del negocio | 404 si no, nunca 403 |
+| `GET /orders/business/:documentId` | dueño del negocio | panel del día |
+| `POST /orders/:id/cancel` | comensal | solo en `new` y dentro de 20 min |
+| `POST /orders/:id/status` | dueño con sesión | panel |
+| `GET /orders/token/:token` | **sin sesión** | link mágico |
+| `POST /orders/token/:token/status` | **sin sesión** | aceptar / rechazar / listo / entregado |
+
+`update` y `delete` **no existen**: el core router usa `only: ['find','findOne','create']`.
+Un PUT genérico dejaría al comensal cambiarse el total. Un pedido no se borra, se cancela.
+
+### El link mágico
+
+`ownerToken` = 32 bytes base64url, `private: true` (nunca sale en una respuesta).
+Vence a las 24 h **o** al llegar a un estado terminal, lo que ocurra primero. Las rutas
+por token llevan `global::rate-limit-submit` con bucket propio.
+
+### Trampas descubiertas construyendo esto
+
+**`select` vs `fields`.** La API de documentos y la content-API usan `fields`; `select` es
+del query engine (`strapi.db.query`). Mezclarlos devuelve `Campo inválido: "select at business"`.
+
+**No reasignar `ctx.query` entero.** El setter de Koa serializa el objeto a query string y
+aplasta los filtros anidados: el endpoint devuelve lista vacía **sin error**. Mutar
+`ctx.query.filters` en su lugar, como hace `business.js`.
+
+**No se puede filtrar por `customer` en la content-API.** Strapi bloquea filtros y populate
+sobre relaciones a `plugin::users-permissions.user` → `Campo inválido: "customer"`. Por eso
+`find` está armado con el query engine en vez de `super.find`.
+
+**El horario se calcula con zona horaria explícita.** `src/utils/is-open.js` usa
+`America/Mexico_City` vía `Intl`, no el reloj del proceso. Railway corre en UTC: copiar el
+`computeIsOpen` del frontend rechazaría pedidos ~6 h al día, justo en la franja de la cena.
+
+**`created_at` es `timestamp without time zone` y Strapi guarda hora local.** El `NOW()` de
+Postgres devuelve UTC. Ida y vuelta por Strapi es simétrico, así que la app funciona — pero
+**SQL crudo contra fechas de pedidos está 6 h desfasado**. Para envejecer un registro en
+pruebas: `created_at = created_at - INTERVAL '15 minutes'`, nunca `NOW() - INTERVAL ...`.
+
+**Borrar pedidos por SQL crudo deja líneas huérfanas** en `components_order_lines`: la
+cascada de Strapi vive en `orders_cmps`, no en la tabla del componente.
+
+### Correos y recordatorio
+
+`src/api/order/services/order-notify.js`. Todo con `setImmediate` + `try/catch`: cuando se
+llama, **el pedido ya está guardado**. Si Resend falla se pierde el aviso, nunca el pedido;
+`notifiedAt` queda en `null` para poder detectarlo.
+
+El cron `remindPendingOrders` (cada 5 min) levanta los pedidos en `new` con más de 10 min.
+`reminderSentAt` se marca en un `finally`, **salga o no el correo**: significa "ya se
+intentó una vez". Si solo se marcara al tener éxito, un proveedor caído dejaría al cron
+reintentando los mismos pedidos para siempre.
+
+---
+
 ## Reglas críticas para crear usuarios programáticamente en Strapi 5
 
 Estas reglas se descubrieron depurando el endpoint `register-owner`. Violarlas rompe el login.

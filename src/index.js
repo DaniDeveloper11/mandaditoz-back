@@ -51,6 +51,9 @@ const AUTHENTICATED_PERMISSIONS = {
   'api::photo.photo': ['create', 'update', 'delete', 'find', 'findOne'],
   'api::menu-section.menu-section': ['find', 'findOne', 'create', 'update', 'delete'],
   'api::menu-item.menu-item': ['find', 'findOne', 'create', 'update', 'delete'],
+  // Sin 'update' ni 'delete': el core router de order no los expone y todo
+  // cambio de estado pasa por rutas que validan la transición.
+  'api::order.order': ['create', 'find', 'findOne', 'cancel'],
   'api::claim.claim': ['create', 'find', 'findOne'],
   'api::report.report': ['create'],
   'api::review.review': ['find', 'findOne', 'create', 'update', 'delete', 'respond'],
@@ -71,6 +74,7 @@ const BUSINESS_OWNER_PERMISSIONS = {
   'api::photo.photo': ['create', 'update', 'delete', 'find', 'findOne'],
   'api::menu-section.menu-section': ['find', 'findOne', 'create', 'update', 'delete'],
   'api::menu-item.menu-item': ['find', 'findOne', 'create', 'update', 'delete'],
+  'api::order.order': ['create', 'find', 'findOne', 'cancel', 'findForBusiness', 'statusAsOwner'],
   'api::claim.claim': ['create', 'find', 'findOne'],
   'api::review.review': ['find', 'findOne', 'create', 'update', 'delete', 'respond'],
   'plugin::upload': ['content-api.upload'],
@@ -147,11 +151,27 @@ async function configureAuthEmailUrls(strapi) {
 
 module.exports = {
   register({ strapi }) {
-    // Cuando el usuario abre el enlace del correo, Strapi solo toca `confirmed`.
-    // `emailVerified` es el dato de negocio (¿este correo existe de verdad?) y
-    // debe seguirlo, incluyendo confirmaciones hechas desde el panel de admin.
+    // `confirmed` es el candado de login de Strapi; `emailVerified` es el dato
+    // de negocio: ¿alguien comprobó de verdad que este correo existe?
     strapi.db.lifecycles.subscribe({
       models: ['plugin::users-permissions.user'],
+
+      // Un alta por OAuth (Google) nace con `confirmed: true` de una vez, sin
+      // pasar por ningún update: el proveedor ya verificó el correo. El alta
+      // local de comensal también nace con `confirmed: true`, pero ahí NADIE
+      // verificó nada — por eso la regla mira el provider y no solo `confirmed`.
+      beforeCreate(event) {
+        const data = event.params.data;
+        if (!data) return;
+        // Si el llamador ya decidió (register-customer lo pone en false a
+        // propósito), se respeta.
+        if (data.emailVerified !== undefined) return;
+        data.emailVerified =
+          data.confirmed === true && !!data.provider && data.provider !== 'local';
+      },
+
+      // Cuando el usuario abre el enlace del correo, Strapi solo toca
+      // `confirmed`. Incluye también las confirmaciones hechas desde el panel.
       beforeUpdate(event) {
         if (event.params.data?.confirmed === true) {
           event.params.data.emailVerified = true;

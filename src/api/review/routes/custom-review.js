@@ -14,7 +14,7 @@ module.exports = {
       config: {
         auth: false,
         middlewares: [
-          { name: 'global::rate-limit-submit', config: { max: 3 } },
+          { name: 'global::rate-limit-submit', config: { bucket: 'review-submit', max: 3 } },
         ],
       },
     },

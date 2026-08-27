@@ -8,7 +8,7 @@ module.exports = {
       handler: 'contact-message.submit',
       config: {
         auth: false,
-        middlewares: ['global::rate-limit-submit'],
+        middlewares: [{ name: 'global::rate-limit-submit', config: { bucket: 'contact-submit' } }],
       },
     },
   ],

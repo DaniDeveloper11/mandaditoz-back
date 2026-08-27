@@ -25,6 +25,44 @@ module.exports = {
     },
   },
 
+  remindPendingOrders: {
+    // Un pedido sin aceptar es una venta a punto de perderse: el cliente está
+    // mirando el celular. A los 10 minutos se le da un segundo toque al negocio
+    // y se avisa al admin, que es quien puede levantar el teléfono.
+    task: async ({ strapi }) => {
+      try {
+        const { sendPendingReminder } = require('../src/api/order/services/order-notify');
+        const cutoff = new Date(Date.now() - 10 * 60 * 1000);
+
+        const pending = await strapi.db.query('api::order.order').findMany({
+          where: {
+            orderStatus: 'new',
+            createdAt: { $lte: cutoff },
+            reminderSentAt: { $null: true },
+          },
+          select: ['id', 'documentId', 'orderNumber'],
+          limit: 50,
+        });
+
+        if (!pending.length) return;
+
+        for (const order of pending) {
+          try {
+            await sendPendingReminder(strapi, order.documentId);
+            strapi.log.warn(`[cron.remindOrders] recordatorio enviado para ${order.orderNumber}`);
+          } catch (err) {
+            strapi.log.error(`[cron.remindOrders] no se pudo recordar ${order.orderNumber}: ${err.message}`);
+          }
+        }
+      } catch (err) {
+        strapi.log.error('[cron.remindOrders] error:', err);
+      }
+    },
+    options: {
+      rule: '*/5 * * * *',
+    },
+  },
+
   cleanupOrphanUploads: {
     // Borra archivos subidos que no están relacionados a ninguna entidad
     // y tienen más de 24h. Protege contra abuso del endpoint público /upload

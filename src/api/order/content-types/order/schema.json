@@ -1,0 +1,123 @@
+{
+  "kind": "collectionType",
+  "collectionName": "orders",
+  "info": {
+    "singularName": "order",
+    "pluralName": "orders",
+    "displayName": "Order",
+    "description": "Pedido de un comensal a un negocio. Todo el dinero se guarda en centavos enteros."
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "attributes": {
+    "orderNumber": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "maxLength": 16,
+      "description": "Legible y aleatorio: MZ-8F3K2. Nunca MAX+1 (condición de carrera y filtra el volumen del negocio)."
+    },
+    "business": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::business.business",
+      "inversedBy": "orders"
+    },
+    "customer": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "plugin::users-permissions.user",
+      "inversedBy": "orders"
+    },
+    "lines": {
+      "type": "component",
+      "repeatable": true,
+      "component": "order.line",
+      "required": true,
+      "min": 1
+    },
+    "fulfillment": {
+      "type": "enumeration",
+      "enum": ["delivery", "pickup"],
+      "required": true,
+      "default": "pickup"
+    },
+    "orderStatus": {
+      "type": "enumeration",
+      "enum": ["new", "accepted", "ready", "delivered", "rejected", "cancelled"],
+      "required": true,
+      "default": "new",
+      "description": "NO se llama status: ese nombre es reservado en Strapi 5 (draft/publish del Document Service)."
+    },
+    "subtotalCents": {
+      "type": "integer",
+      "required": true,
+      "min": 0,
+      "default": 0
+    },
+    "deliveryFeeCents": {
+      "type": "integer",
+      "required": true,
+      "min": 0,
+      "default": 0
+    },
+    "totalCents": {
+      "type": "integer",
+      "required": true,
+      "min": 0,
+      "default": 0
+    },
+    "customerName": {
+      "type": "string",
+      "required": true,
+      "maxLength": 120,
+      "description": "Snapshot. Si el comensal cambia su perfil, el pedido conserva con quién trató el negocio."
+    },
+    "customerPhone": {
+      "type": "string",
+      "required": true,
+      "maxLength": 20,
+      "description": "Snapshot en E.164. Es el número al que el negocio llama cuando el pedido está listo."
+    },
+    "deliveryAddress": {
+      "type": "text",
+      "maxLength": 400,
+      "description": "Solo cuando fulfillment = delivery."
+    },
+    "customerNotes": {
+      "type": "text",
+      "maxLength": 500
+    },
+    "ownerToken": {
+      "type": "string",
+      "unique": true,
+      "private": true,
+      "maxLength": 64,
+      "description": "Credencial del link mágico. private: true para que jamás salga en una respuesta de la API."
+    },
+    "ownerTokenExpiresAt": {
+      "type": "datetime"
+    },
+    "acceptedAt": { "type": "datetime" },
+    "readyAt": { "type": "datetime" },
+    "deliveredAt": { "type": "datetime" },
+    "closedAt": { "type": "datetime" },
+    "rejectionReason": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "statusHistory": {
+      "type": "json",
+      "description": "Append-only: [{ status, at, by }]. by = 'customer' | 'owner' | 'system'."
+    },
+    "notifiedAt": {
+      "type": "datetime",
+      "description": "Cuándo salió el aviso al negocio. null = el pedido se guardó pero el correo falló."
+    },
+    "reminderSentAt": {
+      "type": "datetime",
+      "description": "Evita que el cron repita el recordatorio de pedido sin aceptar."
+    }
+  }
+}
