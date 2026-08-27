@@ -1,6 +1,7 @@
 'use strict';
 
 const { renderBrandedEmail, esc } = require('../../../../utils/email-template');
+const { promoteToBusinessOwner } = require('../../../../utils/roles');
 
 module.exports = {
   async beforeUpdate(event) {
@@ -58,19 +59,7 @@ module.exports = {
       }
 
       if (newStatus === 'approved') {
-        const businessOwnerRole = await strapi.db
-          .query('plugin::users-permissions.role')
-          .findOne({ where: { name: 'BusinessOwner' } });
-
-        if (!businessOwnerRole) {
-          strapi.log.warn('[claim] Rol BusinessOwner no encontrado');
-          return;
-        }
-
-        await strapi.db.query('plugin::users-permissions.user').update({
-          where: { id: claim.user.id },
-          data: { role: businessOwnerRole.id },
-        });
+        await promoteToBusinessOwner(strapi, claim.user.id);
 
         await strapi.documents('api::business.business').update({
           documentId: claim.business.documentId,

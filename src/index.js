@@ -32,11 +32,20 @@ const PUBLIC_PERMISSIONS = {
   'plugin::users-permissions.user': ['create', 'me'],
 };
 
+// Nota: los permisos son por rol, no acumulativos en Strapi. Todo lo que el
+// rol Public puede leer tiene que estar también aquí, o la misma pantalla que
+// funciona sin sesión devuelve 403 al iniciar sesión como comensal.
 const AUTHENTICATED_PERMISSIONS = {
-  'api::business.business': ['update', 'delete', 'mine'],
-  'api::business-event.business-event': ['statsForBusiness'],
+  // 'create': un comensal puede publicar su propio negocio. El lifecycle
+  // afterCreate de business lo asciende a BusinessOwner en ese momento.
+  'api::business.business': ['create', 'find', 'findOne', 'update', 'delete', 'mine'],
+  'api::business-event.business-event': ['track', 'statsForBusiness'],
+  'api::business-hour.business-hour': ['find', 'findOne'],
+  'api::business-hour-exception.business-hour-exception': ['find', 'findOne'],
+  'api::contact-message.contact-message': ['submit'],
   'api::category.category': ['find', 'findOne'],
   'api::city.city': ['find', 'findOne'],
+  'api::state.state': ['find', 'findOne'],
   'api::neighborhood.neighborhood': ['find', 'findOne'],
   'api::tag.tag': ['find', 'findOne'],
   'api::photo.photo': ['create', 'update', 'delete', 'find', 'findOne'],
@@ -44,7 +53,7 @@ const AUTHENTICATED_PERMISSIONS = {
   'api::menu-item.menu-item': ['find', 'findOne', 'create', 'update', 'delete'],
   'api::claim.claim': ['create', 'find', 'findOne'],
   'api::report.report': ['create'],
-  'api::review.review': ['create', 'update', 'delete', 'respond'],
+  'api::review.review': ['find', 'findOne', 'create', 'update', 'delete', 'respond'],
   'plugin::upload': ['content-api.upload'],
   'plugin::users-permissions.auth': ['changePassword', 'logout'],
   'plugin::users-permissions.user': ['me', 'updateMe'],
@@ -137,7 +146,19 @@ async function configureAuthEmailUrls(strapi) {
 }
 
 module.exports = {
-  register(/* { strapi } */) {},
+  register({ strapi }) {
+    // Cuando el usuario abre el enlace del correo, Strapi solo toca `confirmed`.
+    // `emailVerified` es el dato de negocio (¿este correo existe de verdad?) y
+    // debe seguirlo, incluyendo confirmaciones hechas desde el panel de admin.
+    strapi.db.lifecycles.subscribe({
+      models: ['plugin::users-permissions.user'],
+      beforeUpdate(event) {
+        if (event.params.data?.confirmed === true) {
+          event.params.data.emailVerified = true;
+        }
+      },
+    });
+  },
 
   async bootstrap({ strapi }) {
     try {

@@ -8,6 +8,7 @@ const {
   getBusinessLinks,
 } = require('../../../../utils/denorm');
 const { renderBrandedEmail, esc } = require('../../../../utils/email-template');
+const { promoteToBusinessOwner } = require('../../../../utils/roles');
 
 const MAX_PUBLISHED_PER_OWNER = 3;
 
@@ -150,6 +151,20 @@ module.exports = {
 
   async afterCreate(event) {
     scheduleRecalc(event.result.id);
+
+    // Un comensal (rol Authenticated) que publica su primer negocio asciende a
+    // BusinessOwner aquí mismo. Tiene que ser await, no setImmediate: el
+    // frontend dispara la creación de horarios inmediatamente después de esta
+    // respuesta y esa ruta ya exige el rol nuevo.
+    const ownerId = event.params?.data?.owner;
+    if (ownerId) {
+      try {
+        await promoteToBusinessOwner(strapi, ownerId);
+      } catch (err) {
+        // Un fallo aquí no debe tumbar la creación del negocio.
+        strapi.log.error('[business] error ascendiendo owner a BusinessOwner:', err);
+      }
+    }
 
     // Notificaciones de solicitud pública (pending_review):
     // 1. Email al admin de que llegó una solicitud nueva a la cola.

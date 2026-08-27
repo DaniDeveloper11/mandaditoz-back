@@ -41,7 +41,7 @@ Campos adicionales al usuario base de Strapi:
 - `avatar` (media/imagen)
 - `phone` (string con regex)
 - `bio` (text, max 300)
-- `emailVerified` (boolean, default false)
+- `emailVerified` (boolean, default false) — ver nota abajo
 - `lastLoginAt` (datetime)
 
 Relaciones del usuario:
@@ -52,6 +52,18 @@ Relaciones del usuario:
 - `uploadedPhotos` → oneToMany → `photo`
 
 ---
+
+## `confirmed` vs `emailVerified`
+Son dos cosas distintas y conviene no confundirlas:
+
+| Campo | Qué significa | Quién lo mueve |
+|---|---|---|
+| `confirmed` | Candado de login de Strapi. Con `email_confirmation` activo, `false` impide entrar. | Strapi, o `register-customer` que lo pone `true` de entrada |
+| `emailVerified` | El dato real: ¿este correo existe? | Un lifecycle en `src/index.js` que lo espeja cuando `confirmed` pasa a `true` |
+
+El comensal entra con `confirmed: true` / `emailVerified: false`: puede pedir de
+inmediato y se le recuerda verificar el correo después. `emailVerified` es lo que hay
+que consultar para saber si se puede confiar en esa dirección.
 
 ## Flujos de negocio
 
@@ -156,6 +168,31 @@ Archivo: `src/extensions/users-permissions/strapi-server.js`
 - No devuelve JWT — el usuario debe confirmar email antes de poder hacer login
 - Handler: `plugin.controllers.user.registerOwner`
 
+**`POST /api/auth/register-customer`** — Registro exprés de comensal
+- Público (`auth: false`)
+- Campos: `displayName`, `phone`, `email`, `password`. Nada más se lee del body:
+  mandar `role`, `confirmed`, `username` o `provider` no tiene efecto.
+- Crea el usuario con rol `Authenticated`, **`confirmed: true`** y `emailVerified: false`
+- **Devuelve JWT**: el comensal queda con sesión iniciada de inmediato. El registro
+  ocurre a medio pedido; mandarlo a su bandeja de entrada antes de continuar mata la venta.
+- El correo de confirmación se envía igual, pero como recordatorio, no como candado
+  (fire-and-forget: si Resend falla, el registro sigue siendo válido)
+- El teléfono se normaliza a E.164 (`+52` + 10 dígitos) con `src/utils/phone.js` y se
+  guarda **también como `username`**, sin el `+`. Como `/auth/local` acepta email o
+  username en `identifier`, el comensal puede entrar con su número de WhatsApp — su
+  identidad real — si tecleó mal el correo.
+- Handler: `plugin.controllers.user.registerCustomer`
+
+> Contraste con `register-owner`: el dueño de negocio **sí** confirma correo antes de
+> poder entrar (`confirmed: false`, sin JWT). Son dos niveles de fricción distintos a
+> propósito: el comensal se registra a media compra, el restaurantero da de alta un
+> negocio y puede esperar un correo.
+
+**`GET /api/users/me`** — Sobrescrito para incluir el rol
+- El `me` del plugin ignora `?populate`, así que `role` nunca llegaba al cliente.
+- Se envuelve el handler original y se adjunta `role: { id, name, type }`.
+- El frontend lo necesita para saber si la cuenta ya es de negocio (ver ascenso de rol).
+
 **`PUT /api/users/me`** — Actualizar perfil propio
 - Requiere JWT
 - Solo permite actualizar: `displayName`, `phone`, `bio`, `avatar`
@@ -188,11 +225,39 @@ Habilitar en panel: **Settings → Users & Permissions → Advanced Settings →
 
 ---
 
-## Permisos del rol Authenticated (bootstrap automático)
-Configurados en `src/index.js` via `setRolePermissions`:
-- `plugin::users-permissions.user`: `updateMe`
+## Roles: niveles acumulativos, no tipos excluyentes
 
----
+```
+Public  ⊂  Authenticated (comensal)  ⊂  BusinessOwner (restaurantero)
+```
+
+Un restaurantero también puede pedir en otros negocios, así que **no necesita una
+segunda cuenta**. Ascender nunca quita permisos.
+
+### Regla crítica de permisos
+Los permisos en Strapi son **por rol y no se heredan**. Todo lo que el rol `Public`
+puede leer tiene que estar también en `AUTHENTICATED_PERMISSIONS`, o la misma pantalla
+que funciona sin sesión devuelve **403 al iniciar sesión**. Este bug estuvo latente
+mucho tiempo sin verse porque `register-owner` daba `BusinessOwner` a todo el mundo
+y ese rol sí tenía los permisos de lectura.
+
+### Ascenso automático a BusinessOwner
+`src/utils/roles.js` → `promoteToBusinessOwner(strapi, userId)`, idempotente. Se dispara en:
+
+| Dónde | Cuándo |
+|---|---|
+| `src/api/business/content-types/business/lifecycles.js` → `afterCreate` | Un comensal publica su primer negocio |
+| `src/api/claim/content-types/claim/lifecycles.js` → `afterUpdate` | El admin aprueba un claim |
+
+> El ascenso en `afterCreate` **debe ser `await`**, no `setImmediate`: el frontend
+> dispara la creación de horarios inmediatamente después de esa respuesta y esa ruta
+> ya exige el rol nuevo. El JWT no guarda el rol — se resuelve contra la base en cada
+> request — así que el ascenso surte efecto con el mismo token, sin re-login.
+
+## Permisos del rol Authenticated (bootstrap automático)
+Configurados en `src/index.js` via `setRolePermissions`. Además de las lecturas en
+paridad con `Public`, incluye `api::business.business: create` — un comensal puede
+publicar su propio negocio y el lifecycle lo asciende en ese momento.
 
 ---
 
@@ -252,5 +317,4 @@ Aunque `password` es `private: true`, la capa de DB devuelve todos los campos in
 ---
 
 ## Pendiente
-- Habilitar permiso `create` en `business` para el rol `BusinessOwner` en el panel de Strapi (Settings → Roles → BusinessOwner → Business → create).
 - Verificar que `hasPassword=true` en logs de `register-owner` para confirmar que el password se almacena correctamente.
