@@ -240,8 +240,17 @@ module.exports = factories.createCoreController('api::review.review', ({ strapi 
       },
     });
 
-    const to = process.env.CONTACT_INBOX || process.env.EMAIL_REPLY_TO || process.env.EMAIL_FROM;
-    if (to) {
+    // Mismo canal que las altas de negocios y los claims: el aviso de
+    // moderacion va a ADMIN_NOTIFICATION_EMAIL, sin buzones de respaldo —
+    // si no esta configurada se avisa en el log y no se manda a nadie mas.
+    const to = process.env.ADMIN_NOTIFICATION_EMAIL;
+    if (!to) {
+      strapi.log.warn(
+        '[review.submit] ADMIN_NOTIFICATION_EMAIL no configurado; se omite el aviso de moderación'
+      );
+    } else {
+      const adminBase = process.env.PUBLIC_ADMIN_URL || 'http://localhost:1337/admin';
+      const adminUrl = `${adminBase}/content-manager/collection-types/api::review.review/${created.documentId}`;
       try {
         await strapi.plugin('email').service('email').send({
           to,
@@ -254,7 +263,8 @@ module.exports = factories.createCoreController('api::review.review', ({ strapi 
             `IP: ${sourceIp}\n\n` +
             `${title ? `Título: ${title}\n\n` : ''}` +
             `${comment}\n\n` +
-            `Aprobar en el admin: Content Manager → Review → reviewStatus = published\n`,
+            `Aprobar o descartar aquí:\n${adminUrl}\n\n` +
+            `(cambia reviewStatus a "published" para publicarla)\n`,
         });
       } catch (err) {
         strapi.log.warn(`[review.submit] no se pudo enviar el aviso de moderación: ${err.message}`);
