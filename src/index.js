@@ -25,11 +25,26 @@ const PUBLIC_PERMISSIONS = {
     'emailConfirmation',
     'forgotPassword',
     'refresh',
-    'register',
     'resetPassword',
     'sendEmailConfirmation',
   ],
-  'plugin::users-permissions.user': ['create', 'me'],
+  'plugin::users-permissions.user': ['me'],
+};
+
+// Permisos que el rol Public NO debe tener, y que hay que quitar activamente
+// porque `setRolePermissions` solo concede: borrarlos del mapa de arriba no
+// revoca nada en una base que ya los tiene.
+//
+// - `user.create` (POST /api/users) permite al llamador elegir el `role`, así
+//   que cualquiera sin sesión podía crearse una cuenta BusinessOwner. Eso es
+//   escalada de privilegios, no un endpoint de más.
+// - `auth.register` (POST /api/auth/local/register) es el alta por defecto de
+//   Strapi: crea usuarios sin teléfono ni displayName y con el rol que diga la
+//   configuración del panel. Las altas van por /auth/register-customer y
+//   /auth/register-owner, que sí validan.
+const PUBLIC_REVOKED_PERMISSIONS = {
+  'plugin::users-permissions.user': ['create'],
+  'plugin::users-permissions.auth': ['register'],
 };
 
 // Nota: los permisos son por rol, no acumulativos en Strapi. Todo lo que el
@@ -117,6 +132,29 @@ async function setRolePermissions(strapi, role, permissions) {
   }
 }
 
+/**
+ * Contraparte de `setRolePermissions`: borra permisos concedidos antes.
+ * Idempotente — si ya no están, no hace nada.
+ */
+async function revokeRolePermissions(strapi, role, permissions) {
+  if (!role) return;
+  for (const [uid, actions] of Object.entries(permissions)) {
+    for (const action of actions) {
+      const permAction = `${uid}.${action}`;
+      const existing = await strapi.db
+        .query('plugin::users-permissions.permission')
+        .findOne({ where: { action: permAction, role: role.id } });
+
+      if (existing) {
+        await strapi.db
+          .query('plugin::users-permissions.permission')
+          .delete({ where: { id: existing.id } });
+        strapi.log.warn(`[bootstrap] revoked ${role.type}: ${permAction}`);
+      }
+    }
+  }
+}
+
 async function configureAuthEmailUrls(strapi) {
   const pluginStore = strapi.store({ type: 'plugin', name: 'users-permissions' });
   const current = (await pluginStore.get({ key: 'advanced' })) || {};
@@ -183,6 +221,7 @@ module.exports = {
       const ownerRole = await ensureBusinessOwnerRole(strapi);
 
       await setRolePermissions(strapi, publicRole, PUBLIC_PERMISSIONS);
+      await revokeRolePermissions(strapi, publicRole, PUBLIC_REVOKED_PERMISSIONS);
       await setRolePermissions(strapi, authenticatedRole, AUTHENTICATED_PERMISSIONS);
       await setRolePermissions(strapi, ownerRole, BUSINESS_OWNER_PERMISSIONS);
 
