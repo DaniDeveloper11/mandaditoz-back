@@ -1,6 +1,6 @@
 'use strict';
 
-const { recalcBusinessRating } = require('../../../../utils/denorm');
+const { recalcBusinessRating, runAfterCommit } = require('../../../../utils/denorm');
 
 function extractRelationId(raw) {
   if (raw == null) return null;
@@ -36,17 +36,21 @@ async function getReviewBusinessId(reviewId) {
 }
 
 /**
- * Programa un recount usando setImmediate para dejar que Strapi
- * termine de persistir las tablas link antes de leerlas.
+ * Programa el recount para despues del COMMIT de la transaccion del document
+ * service. Antes se hacia con `setImmediate` a secas y el recalc podia correr
+ * con la transaccion todavia abierta: leia por fuera de ella y guardaba el
+ * conteo previo al cambio (publicar una resena desde el admin dejaba el
+ * negocio en 0 resenas). El businessId tambien se resuelve ahi dentro, porque
+ * la fila de reviews_business_lnk de una resena recien creada tampoco es
+ * visible hasta el commit.
  */
-function scheduleRecalc(businessId) {
-  if (!businessId) return;
-  setImmediate(async () => {
-    try {
-      await recalcBusinessRating(businessId);
-    } catch (err) {
-      strapi.log.error('[review recalc deferred] error:', err);
-    }
+function scheduleRecalc({ reviewId, rawBusiness, businessId }) {
+  runAfterCommit(async () => {
+    let id = businessId ?? null;
+    if (!id) id = await getReviewBusinessId(reviewId);
+    if (!id) id = await resolveBusinessIdFromAny(rawBusiness);
+    if (!id) return;
+    await recalcBusinessRating(id);
   });
 }
 
@@ -75,24 +79,17 @@ module.exports = {
   },
 
   async afterCreate(event) {
-    try {
-      // El link puede no estar persistido aún → intentar por link, si no por data.business.
-      let businessId = await getReviewBusinessId(event.result.id);
-      if (!businessId) businessId = await resolveBusinessIdFromAny(event.params?.data?.business);
-      scheduleRecalc(businessId);
-    } catch (err) {
-      strapi.log.error('[review.afterCreate] recalc error:', err);
-    }
+    scheduleRecalc({
+      reviewId: event.result?.id,
+      rawBusiness: event.params?.data?.business,
+    });
   },
 
   async afterUpdate(event) {
-    try {
-      let businessId = await getReviewBusinessId(event.result.id);
-      if (!businessId) businessId = await resolveBusinessIdFromAny(event.params?.data?.business);
-      scheduleRecalc(businessId);
-    } catch (err) {
-      strapi.log.error('[review.afterUpdate] recalc error:', err);
-    }
+    scheduleRecalc({
+      reviewId: event.result?.id,
+      rawBusiness: event.params?.data?.business,
+    });
   },
 
   async beforeDelete(event) {
@@ -104,10 +101,6 @@ module.exports = {
   },
 
   async afterDelete(event) {
-    try {
-      scheduleRecalc(event.state?.deletedReviewBusinessId);
-    } catch (err) {
-      strapi.log.error('[review.afterDelete] recalc error:', err);
-    }
+    scheduleRecalc({ businessId: event.state?.deletedReviewBusinessId });
   },
 };

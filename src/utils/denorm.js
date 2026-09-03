@@ -1,6 +1,43 @@
 'use strict';
 
 /**
+ * Ejecuta `fn` cuando la transaccion en curso haya hecho COMMIT (o de inmediato
+ * si no hay transaccion abierta).
+ *
+ * Los recalcs de este archivo leen y escriben con `strapi.db.connection.raw`,
+ * que toma su propia conexion del pool y NO ve lo que la transaccion del
+ * document service todavia no commiteo. Un lifecycle que dispara el recalc con
+ * `setImmediate` puede ganarle al COMMIT y guardar el conteo viejo — que es
+ * exactamente lo que pasaba al publicar una resena desde el admin: el recalc
+ * leia la resena aun como 'pending' y dejaba el negocio en 0 resenas.
+ */
+function runAfterCommit(fn) {
+  const run = () => {
+    setImmediate(async () => {
+      try {
+        await fn();
+      } catch (err) {
+        strapi.log.error('[denorm afterCommit] error:', err);
+      }
+    });
+  };
+
+  if (!strapi.db.inTransaction?.()) {
+    run();
+    return;
+  }
+
+  strapi.db
+    .transaction(({ onCommit }) => {
+      onCommit(run);
+    })
+    .catch((err) => {
+      strapi.log.error('[denorm afterCommit] no se pudo enganchar al commit:', err);
+      run();
+    });
+}
+
+/**
  * Recalcula business_count de una categoría desde su tabla link.
  * Idempotente: no depende de saber si fue add/remove.
  */
@@ -90,6 +127,7 @@ async function getBusinessLinks(businessId) {
 }
 
 module.exports = {
+  runAfterCommit,
   recalcCategoryBusinessCount,
   recalcCityBusinessCount,
   recalcTagBusinessCount,
