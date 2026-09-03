@@ -65,56 +65,6 @@ export interface BusinessSocialLink extends Struct.ComponentSchema {
   };
 }
 
-export interface OrderLine extends Struct.ComponentSchema {
-  collectionName: 'components_order_lines';
-  info: {
-    description: 'Snapshot inmutable de un platillo pedido. NO es una relaci\u00F3n a menu-item a prop\u00F3sito: si el negocio cambia el precio o borra el platillo, el pedido hist\u00F3rico no debe cambiar.';
-    displayName: 'Order Line';
-    icon: 'shoppingCart';
-  };
-  attributes: {
-    lineTotalCents: Schema.Attribute.Integer &
-      Schema.Attribute.Required &
-      Schema.Attribute.SetMinMax<
-        {
-          min: 0;
-        },
-        number
-      >;
-    menuItemDocumentId: Schema.Attribute.String &
-      Schema.Attribute.SetMinMaxLength<{
-        maxLength: 40;
-      }>;
-    name: Schema.Attribute.String &
-      Schema.Attribute.Required &
-      Schema.Attribute.SetMinMaxLength<{
-        maxLength: 120;
-      }>;
-    notes: Schema.Attribute.String &
-      Schema.Attribute.SetMinMaxLength<{
-        maxLength: 200;
-      }>;
-    quantity: Schema.Attribute.Integer &
-      Schema.Attribute.Required &
-      Schema.Attribute.SetMinMax<
-        {
-          max: 99;
-          min: 1;
-        },
-        number
-      > &
-      Schema.Attribute.DefaultTo<1>;
-    unitPriceCents: Schema.Attribute.Integer &
-      Schema.Attribute.Required &
-      Schema.Attribute.SetMinMax<
-        {
-          min: 0;
-        },
-        number
-      >;
-  };
-}
-
 export interface SharedAddress extends Struct.ComponentSchema {
   collectionName: 'components_shared_addresses';
   info: {
@@ -208,7 +158,6 @@ declare module '@strapi/strapi' {
       'business.phone': BusinessPhone;
       'business.response': BusinessResponse;
       'business.social-link': BusinessSocialLink;
-      'order.line': OrderLine;
       'shared.address': SharedAddress;
       'shared.geo': SharedGeo;
       'shared.seo': SharedSeo;

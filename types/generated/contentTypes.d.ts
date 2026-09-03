@@ -579,7 +579,6 @@ export interface ApiBusinessBusiness extends Struct.CollectionTypeSchema {
     draftAndPublish: false;
   };
   attributes: {
-    acceptsOrders: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     address: Schema.Attribute.Component<'shared.address', false>;
     amenities: Schema.Attribute.JSON;
     archivedAt: Schema.Attribute.DateTime;
@@ -598,14 +597,6 @@ export interface ApiBusinessBusiness extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     createdByAdmin: Schema.Attribute.Boolean &
       Schema.Attribute.DefaultTo<false>;
-    deliveryFeeCents: Schema.Attribute.Integer &
-      Schema.Attribute.SetMinMax<
-        {
-          min: 0;
-        },
-        number
-      > &
-      Schema.Attribute.DefaultTo<0>;
     description: Schema.Attribute.RichText &
       Schema.Attribute.SetMinMaxLength<{
         maxLength: 3000;
@@ -619,7 +610,6 @@ export interface ApiBusinessBusiness extends Struct.CollectionTypeSchema {
         number
       >;
     featuredUntil: Schema.Attribute.DateTime;
-    fulfillmentModes: Schema.Attribute.JSON;
     geo: Schema.Attribute.Component<'shared.geo', false>;
     hourExceptions: Schema.Attribute.Relation<
       'oneToMany',
@@ -656,14 +646,6 @@ export interface ApiBusinessBusiness extends Struct.CollectionTypeSchema {
       'api::menu-section.menu-section'
     >;
     menuUrl: Schema.Attribute.Text;
-    minOrderCents: Schema.Attribute.Integer &
-      Schema.Attribute.SetMinMax<
-        {
-          min: 0;
-        },
-        number
-      > &
-      Schema.Attribute.DefaultTo<0>;
     name: Schema.Attribute.String &
       Schema.Attribute.Required &
       Schema.Attribute.SetMinMaxLength<{
@@ -674,13 +656,6 @@ export interface ApiBusinessBusiness extends Struct.CollectionTypeSchema {
       'manyToOne',
       'api::neighborhood.neighborhood'
     >;
-    orderNotifyEmail: Schema.Attribute.Email;
-    orderNotifyPhone: Schema.Attribute.String &
-      Schema.Attribute.SetMinMaxLength<{
-        maxLength: 20;
-      }>;
-    orders: Schema.Attribute.Relation<'oneToMany', 'api::order.order'>;
-    ordersPausedUntil: Schema.Attribute.DateTime;
     owner: Schema.Attribute.Relation<
       'manyToOne',
       'plugin::users-permissions.user'
@@ -693,15 +668,6 @@ export interface ApiBusinessBusiness extends Struct.CollectionTypeSchema {
     paymentMethods: Schema.Attribute.JSON;
     phones: Schema.Attribute.Component<'business.phone', true>;
     photos: Schema.Attribute.Relation<'oneToMany', 'api::photo.photo'>;
-    prepTimeMinutes: Schema.Attribute.Integer &
-      Schema.Attribute.SetMinMax<
-        {
-          max: 240;
-          min: 0;
-        },
-        number
-      > &
-      Schema.Attribute.DefaultTo<20>;
     priceLevel: Schema.Attribute.Enumeration<
       ['free', 'budget', 'moderate', 'upscale', 'luxury']
     >;
@@ -1183,121 +1149,6 @@ export interface ApiNeighborhoodNeighborhood
     postalCode: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
     slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
-    updatedAt: Schema.Attribute.DateTime;
-    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-  };
-}
-
-export interface ApiOrderOrder extends Struct.CollectionTypeSchema {
-  collectionName: 'orders';
-  info: {
-    description: 'Pedido de un comensal a un negocio. Todo el dinero se guarda en centavos enteros.';
-    displayName: 'Order';
-    pluralName: 'orders';
-    singularName: 'order';
-  };
-  options: {
-    draftAndPublish: false;
-  };
-  attributes: {
-    acceptedAt: Schema.Attribute.DateTime;
-    business: Schema.Attribute.Relation<'manyToOne', 'api::business.business'>;
-    closedAt: Schema.Attribute.DateTime;
-    createdAt: Schema.Attribute.DateTime;
-    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
-      Schema.Attribute.Private;
-    customer: Schema.Attribute.Relation<
-      'manyToOne',
-      'plugin::users-permissions.user'
-    >;
-    customerName: Schema.Attribute.String &
-      Schema.Attribute.Required &
-      Schema.Attribute.SetMinMaxLength<{
-        maxLength: 120;
-      }>;
-    customerNotes: Schema.Attribute.Text &
-      Schema.Attribute.SetMinMaxLength<{
-        maxLength: 500;
-      }>;
-    customerPhone: Schema.Attribute.String &
-      Schema.Attribute.Required &
-      Schema.Attribute.SetMinMaxLength<{
-        maxLength: 20;
-      }>;
-    deliveredAt: Schema.Attribute.DateTime;
-    deliveryAddress: Schema.Attribute.Text &
-      Schema.Attribute.SetMinMaxLength<{
-        maxLength: 400;
-      }>;
-    deliveryFeeCents: Schema.Attribute.Integer &
-      Schema.Attribute.Required &
-      Schema.Attribute.SetMinMax<
-        {
-          min: 0;
-        },
-        number
-      > &
-      Schema.Attribute.DefaultTo<0>;
-    fulfillment: Schema.Attribute.Enumeration<['delivery', 'pickup']> &
-      Schema.Attribute.Required &
-      Schema.Attribute.DefaultTo<'pickup'>;
-    lines: Schema.Attribute.Component<'order.line', true> &
-      Schema.Attribute.Required &
-      Schema.Attribute.SetMinMax<
-        {
-          min: 1;
-        },
-        number
-      >;
-    locale: Schema.Attribute.String & Schema.Attribute.Private;
-    localizations: Schema.Attribute.Relation<'oneToMany', 'api::order.order'> &
-      Schema.Attribute.Private;
-    notifiedAt: Schema.Attribute.DateTime;
-    orderNumber: Schema.Attribute.String &
-      Schema.Attribute.Required &
-      Schema.Attribute.Unique &
-      Schema.Attribute.SetMinMaxLength<{
-        maxLength: 16;
-      }>;
-    orderStatus: Schema.Attribute.Enumeration<
-      ['new', 'accepted', 'ready', 'delivered', 'rejected', 'cancelled']
-    > &
-      Schema.Attribute.Required &
-      Schema.Attribute.DefaultTo<'new'>;
-    ownerToken: Schema.Attribute.String &
-      Schema.Attribute.Private &
-      Schema.Attribute.Unique &
-      Schema.Attribute.SetMinMaxLength<{
-        maxLength: 64;
-      }>;
-    ownerTokenExpiresAt: Schema.Attribute.DateTime;
-    publishedAt: Schema.Attribute.DateTime;
-    readyAt: Schema.Attribute.DateTime;
-    rejectionReason: Schema.Attribute.String &
-      Schema.Attribute.SetMinMaxLength<{
-        maxLength: 200;
-      }>;
-    reminderSentAt: Schema.Attribute.DateTime;
-    statusHistory: Schema.Attribute.JSON;
-    subtotalCents: Schema.Attribute.Integer &
-      Schema.Attribute.Required &
-      Schema.Attribute.SetMinMax<
-        {
-          min: 0;
-        },
-        number
-      > &
-      Schema.Attribute.DefaultTo<0>;
-    totalCents: Schema.Attribute.Integer &
-      Schema.Attribute.Required &
-      Schema.Attribute.SetMinMax<
-        {
-          min: 0;
-        },
-        number
-      > &
-      Schema.Attribute.DefaultTo<0>;
     updatedAt: Schema.Attribute.DateTime;
     updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -2090,7 +1941,6 @@ export interface PluginUsersPermissionsUser
       'plugin::users-permissions.user'
     > &
       Schema.Attribute.Private;
-    orders: Schema.Attribute.Relation<'oneToMany', 'api::order.order'>;
     ownedBusinesses: Schema.Attribute.Relation<
       'oneToMany',
       'api::business.business'
@@ -2145,7 +1995,6 @@ declare module '@strapi/strapi' {
       'api::menu-item.menu-item': ApiMenuItemMenuItem;
       'api::menu-section.menu-section': ApiMenuSectionMenuSection;
       'api::neighborhood.neighborhood': ApiNeighborhoodNeighborhood;
-      'api::order.order': ApiOrderOrder;
       'api::photo.photo': ApiPhotoPhoto;
       'api::report.report': ApiReportReport;
       'api::review.review': ApiReviewReview;

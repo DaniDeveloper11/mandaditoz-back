@@ -120,12 +120,6 @@
       "relation": "oneToMany",
       "target": "api::photo.photo",
       "mappedBy": "uploadedBy"
-    },
-    "orders": {
-      "type": "relation",
-      "relation": "oneToMany",
-      "target": "api::order.order",
-      "mappedBy": "customer"
     }
   }
 }

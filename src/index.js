@@ -51,9 +51,6 @@ const AUTHENTICATED_PERMISSIONS = {
   'api::photo.photo': ['create', 'update', 'delete', 'find', 'findOne'],
   'api::menu-section.menu-section': ['find', 'findOne', 'create', 'update', 'delete'],
   'api::menu-item.menu-item': ['find', 'findOne', 'create', 'update', 'delete'],
-  // Sin 'update' ni 'delete': el core router de order no los expone y todo
-  // cambio de estado pasa por rutas que validan la transición.
-  'api::order.order': ['create', 'find', 'findOne', 'cancel'],
   'api::claim.claim': ['create', 'find', 'findOne'],
   'api::report.report': ['create'],
   'api::review.review': ['find', 'findOne', 'create', 'update', 'delete', 'respond'],
@@ -74,7 +71,6 @@ const BUSINESS_OWNER_PERMISSIONS = {
   'api::photo.photo': ['create', 'update', 'delete', 'find', 'findOne'],
   'api::menu-section.menu-section': ['find', 'findOne', 'create', 'update', 'delete'],
   'api::menu-item.menu-item': ['find', 'findOne', 'create', 'update', 'delete'],
-  'api::order.order': ['create', 'find', 'findOne', 'cancel', 'findForBusiness', 'statusAsOwner'],
   'api::claim.claim': ['create', 'find', 'findOne'],
   'api::review.review': ['find', 'findOne', 'create', 'update', 'delete', 'respond'],
   'plugin::upload': ['content-api.upload'],
