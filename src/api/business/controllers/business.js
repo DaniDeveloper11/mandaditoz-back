@@ -24,7 +24,15 @@ module.exports = factories.createCoreController('api::business.business', ({ str
   },
 
   async update(ctx) {
-    console.log('[controller] update llamado, user:', ctx.state.user?.id, 'documentId:', ctx.params.id);
+    // Destacar es curaduría editorial, no una opción del dueño: estos tres
+    // campos solo se tocan desde el panel admin. Mismo criterio que con
+    // "owner" en create.
+    const data = ctx.request.body?.data;
+    if (data) {
+      delete data.isFeatured;
+      delete data.featuredUntil;
+      delete data.featuredOrder;
+    }
     return super.update(ctx);
   },
 

@@ -1,30 +1,6 @@
 'use strict';
 
 module.exports = {
-  expireFeaturedBusinesses: {
-    task: async ({ strapi }) => {
-      try {
-        const [{ rowCount }] = await Promise.all([
-          strapi.db.connection.raw(
-            `UPDATE businesses
-             SET is_featured = false, featured_order = NULL
-             WHERE is_featured = true
-               AND featured_until IS NOT NULL
-               AND featured_until < NOW()`
-          ),
-        ]);
-        if (rowCount > 0) {
-          strapi.log.info(`[cron.expireFeatured] Apagados ${rowCount} negocios destacados vencidos`);
-        }
-      } catch (err) {
-        strapi.log.error('[cron.expireFeatured] error:', err);
-      }
-    },
-    options: {
-      rule: '0 * * * *',
-    },
-  },
-
   cleanupOrphanUploads: {
     // Borra archivos subidos que no están relacionados a ninguna entidad
     // y tienen más de 24h. Protege contra abuso del endpoint público /upload

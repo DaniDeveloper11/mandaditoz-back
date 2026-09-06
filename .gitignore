@@ -71,6 +71,10 @@ $RECYCLE.BIN/
 *.sqlite
 *.sqlite3
 
+# ...pero las migraciones SI se versionan: Strapi las corre al arrancar desde
+# database/migrations/, asi que si no viajan en el repo nunca llegan a Railway.
+!database/migrations/*.sql
+
 
 ############################
 # Misc.
