@@ -91,6 +91,13 @@
     "lastLoginAt": {
       "type": "datetime"
     },
+    "pendingRedirect": {
+      "type": "string",
+      "maxLength": 255,
+      "configurable": false,
+      "private": true,
+      "searchable": false
+    },
     "ownedBusinesses": {
       "type": "relation",
       "relation": "oneToMany",

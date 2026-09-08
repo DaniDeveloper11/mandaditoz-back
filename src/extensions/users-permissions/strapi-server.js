@@ -1,6 +1,7 @@
 'use strict';
 
 const { normalizeMxPhone } = require('../../utils/phone');
+const { safeRedirectPath } = require('../../utils/redirect');
 
 const ALLOWED_UPDATE_FIELDS = ['displayName', 'phone', 'bio', 'avatar'];
 
@@ -8,7 +9,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 module.exports = (plugin) => {
   plugin.controllers.user.registerOwner = async (ctx) => {
-    const { username, email, password, displayName, phone } = ctx.request.body;
+    const { username, email, password, displayName, phone, redirect } = ctx.request.body;
 
     if (!username || !email || !password) {
       return ctx.badRequest('username, email y password son requeridos');
@@ -42,6 +43,11 @@ module.exports = (plugin) => {
       confirmed: false,
       blocked: false,
       role: businessOwnerRole.id,
+      // A donde iba el usuario antes de que le pidieramos crear cuenta (p.ej.
+      // la ficha que venia a reclamar). Se guarda aqui y no en el cliente
+      // porque el correo de confirmacion se abre cuando y donde sea, y al
+      // volver por el 302 de Strapi no queda ni query ni sesion que consultar.
+      pendingRedirect: safeRedirectPath(redirect),
     });
 
     strapi.log.info(`[register-owner] usuario creado: id=${newUser.id} email=${newUser.email} provider=${newUser.provider} confirmed=${newUser.confirmed}`);
@@ -71,18 +77,71 @@ module.exports = (plugin) => {
   });
 
   /**
-   * Registro exprés de comensal.
+   * Confirmacion de correo: devolver al usuario a donde iba.
    *
-   * A diferencia de register-owner, aquí el correo NO es un candado: el
-   * comensal queda con `confirmed: true` y entra de inmediato, porque el
-   * registro ocurre a medio pedido y mandarlo a su bandeja de entrada mata la
-   * conversión. `emailVerified` guarda el dato real de si ya comprobó el correo
-   * y es lo que se usa para recordarle después.
+   * El controlador del plugin confirma la cuenta y hace un 302 ciego hacia
+   * `email_confirmation_redirection`, una URL fija que vive en la base. El que
+   * venia a reclamar su negocio aterrizaba en una pagina sin query ni sesion, y
+   * el rastro de su intencion se perdia ahi. Aqui se recupera el
+   * `pendingRedirect` que guardo register-owner y se cuelga del 302 como `?to=`.
    *
-   * El WhatsApp es la identidad real del comensal, así que se guarda también
-   * como `username`: /auth/local acepta email o username como identifier, de
-   * modo que puede iniciar sesión con su número si tecleó mal el correo.
+   * OJO con la forma: a diferencia de `user`, que el plugin exporta como objeto
+   * plano (y por eso mas abajo se puede envolver `user.me` directamente), el
+   * controlador `auth` se exporta como FABRICA: `({ strapi }) => ({ ... })`.
+   * Asignar sobre `plugin.controllers.auth.emailConfirmation` no sobrescribe
+   * nada, solo le cuelga una propiedad a la funcion, y el envoltorio jamas se
+   * ejecuta. Hay que envolver la fabrica y parchear el objeto que devuelve.
    */
+  const authControllerFactory = plugin.controllers.auth;
+
+  plugin.controllers.auth = (context) => {
+    const controller = authControllerFactory(context);
+    const originalEmailConfirmation = controller.emailConfirmation;
+
+    // El tercer argumento es `returnUser`: cuando viene en true (lo usa la
+    // mutacion de GraphQL) el controlador responde con JSON en vez de redirigir,
+    // asi que hay que pasarlo tal cual o se rompe ese camino.
+    controller.emailConfirmation = async (ctx, next, returnUser) => {
+      // Hay que leer al usuario ANTES: el controlador original limpia
+      // confirmationToken, y despues ya no hay forma de saber quien confirmo.
+      const token = ctx.query.confirmation;
+      const user = token
+        ? await strapi.db
+            .query('plugin::users-permissions.user')
+            .findOne({ where: { confirmationToken: token } })
+        : null;
+
+      await originalEmailConfirmation(ctx, next, returnUser);
+
+      const destino = safeRedirectPath(user?.pendingRedirect);
+      if (!destino) return;
+
+      // El original ya hizo ctx.redirect(...); aqui solo se le cuelga el
+      // destino. Se concatena a mano en vez de usar URL() porque ese ajuste vive
+      // en la base y podria estar guardado como ruta relativa, con la que el
+      // constructor lanzaria.
+      const location = ctx.response.get('Location');
+      if (!location || ctx.status < 300 || ctx.status >= 400) return;
+
+      const sep = location.includes('?') ? '&' : '?';
+      ctx.redirect(`${location}${sep}to=${encodeURIComponent(destino)}`);
+
+      // De un solo uso, y solo se borra cuando de verdad se entrego: si el
+      // usuario ya va camino a su destino y esto falla, se registra y se sigue.
+      try {
+        await strapi.db
+          .query('plugin::users-permissions.user')
+          .update({ where: { id: user.id }, data: { pendingRedirect: null } });
+      } catch (err) {
+        strapi.log.error(
+          `[email-confirmation] no se pudo limpiar pendingRedirect de ${user.id}: ${err.message}`
+        );
+      }
+    };
+
+    return controller;
+  };
+
   plugin.controllers.user.registerCustomer = async (ctx) => {
     const { displayName, email, password, phone } = ctx.request.body ?? {};
 
