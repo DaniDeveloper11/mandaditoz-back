@@ -32,6 +32,15 @@ module.exports = factories.createCoreController('api::business.business', ({ str
       delete data.isFeatured;
       delete data.featuredUntil;
       delete data.featuredOrder;
+      // Los campos de outreach son maquinaria interna del embudo de reclamo:
+      // el token es la credencial que permite adueñarse de la ficha, así que
+      // nadie lo escribe desde fuera. Se generan en scripts/generate-claim-links.js.
+      delete data.outreachToken;
+      delete data.outreachTokenExpiresAt;
+      delete data.outreachPhone;
+      delete data.lastOutreachAt;
+      delete data.outreachCount;
+      delete data.outreachOptOut;
     }
     return super.update(ctx);
   },

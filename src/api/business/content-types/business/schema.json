@@ -289,6 +289,41 @@
     "archivedAt": {
       "type": "datetime",
       "description": "Soft delete: si no es null, el negocio está archivado"
+    },
+    "outreachToken": {
+      "type": "string",
+      "maxLength": 64,
+      "private": true,
+      "description": "Token de invitación para reclamar el negocio. PRIVATE obligatorio: si sale por la API pública, cualquiera puede reclamar cualquier ficha."
+    },
+    "outreachTokenExpiresAt": {
+      "type": "datetime",
+      "private": true,
+      "description": "Vencimiento del outreachToken"
+    },
+    "outreachPhone": {
+      "type": "string",
+      "maxLength": 20,
+      "private": true,
+      "description": "Teléfono al que se envió la invitación, normalizado a 52XXXXXXXXXX"
+    },
+    "lastOutreachAt": {
+      "type": "datetime",
+      "private": true,
+      "description": "Última vez que se le mandó invitación a este negocio"
+    },
+    "outreachCount": {
+      "type": "integer",
+      "default": 0,
+      "min": 0,
+      "private": true,
+      "description": "Cuántas invitaciones se le han mandado"
+    },
+    "outreachOptOut": {
+      "type": "boolean",
+      "default": false,
+      "private": true,
+      "description": "Si es true, no se le vuelve a mandar invitación"
     }
   }
 }

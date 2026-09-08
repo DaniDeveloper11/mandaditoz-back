@@ -50,6 +50,12 @@
       "type": "text",
       "maxLength": 1000
     },
+    "claimSource": {
+      "type": "enumeration",
+      "enum": ["form", "outreach_token"],
+      "default": "form",
+      "description": "form = el usuario encontró la ficha y pidió reclamarla. outreach_token = llegó por un enlace de invitación mandado al teléfono publicado."
+    },
     "claimStatus": {
       "type": "enumeration",
       "enum": ["pending", "approved", "rejected", "cancelled"],

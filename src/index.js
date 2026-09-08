@@ -6,6 +6,9 @@
 const PUBLIC_PERMISSIONS = {
   'api::business.business': ['find', 'findOne', 'submit'],
   'api::business-event.business-event': ['track'],
+  // Reclamo por invitación: quien llega por el enlace todavía no tiene cuenta,
+  // crearla es justo lo que viene a hacer.
+  'api::claim.claim': ['invite', 'redeemInvite'],
   'api::contact-message.contact-message': ['submit'],
   'plugin::upload': ['content-api.upload'],
   'api::business-hour.business-hour': ['find', 'findOne'],

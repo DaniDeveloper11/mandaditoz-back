@@ -626,6 +626,7 @@ export interface ApiBusinessBusiness extends Struct.CollectionTypeSchema {
     isFeatured: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     isMobile: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     isVerified: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    lastOutreachAt: Schema.Attribute.DateTime & Schema.Attribute.Private;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<
       'oneToMany',
@@ -656,6 +657,30 @@ export interface ApiBusinessBusiness extends Struct.CollectionTypeSchema {
       'manyToOne',
       'api::neighborhood.neighborhood'
     >;
+    outreachCount: Schema.Attribute.Integer &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<0>;
+    outreachOptOut: Schema.Attribute.Boolean &
+      Schema.Attribute.Private &
+      Schema.Attribute.DefaultTo<false>;
+    outreachPhone: Schema.Attribute.String &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 20;
+      }>;
+    outreachToken: Schema.Attribute.String &
+      Schema.Attribute.Private &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 64;
+      }>;
+    outreachTokenExpiresAt: Schema.Attribute.DateTime &
+      Schema.Attribute.Private;
     owner: Schema.Attribute.Relation<
       'manyToOne',
       'plugin::users-permissions.user'
@@ -915,6 +940,8 @@ export interface ApiClaimClaim extends Struct.CollectionTypeSchema {
     > &
       Schema.Attribute.Required &
       Schema.Attribute.DefaultTo<'owner'>;
+    claimSource: Schema.Attribute.Enumeration<['form', 'outreach_token']> &
+      Schema.Attribute.DefaultTo<'form'>;
     claimStatus: Schema.Attribute.Enumeration<
       ['pending', 'approved', 'rejected', 'cancelled']
     > &
