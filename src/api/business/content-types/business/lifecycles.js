@@ -9,8 +9,7 @@ const {
 } = require('../../../../utils/denorm');
 const { renderBrandedEmail, esc } = require('../../../../utils/email-template');
 const { promoteToBusinessOwner } = require('../../../../utils/roles');
-
-const MAX_PUBLISHED_PER_OWNER = 3;
+const { normalizeOwnerId, getPublishedLimit } = require('../../../../utils/publish-limit');
 
 async function countPublishedByOwner(ownerId, excludeBusinessId = null) {
   const where = {
@@ -22,12 +21,16 @@ async function countPublishedByOwner(ownerId, excludeBusinessId = null) {
   return strapi.db.query('api::business.business').count({ where });
 }
 
-async function assertPublishLimit(ownerId, excludeBusinessId = null) {
+async function assertPublishLimit(owner, excludeBusinessId = null) {
+  const ownerId = normalizeOwnerId(owner);
   if (!ownerId) return;
-  const count = await countPublishedByOwner(ownerId, excludeBusinessId);
-  if (count >= MAX_PUBLISHED_PER_OWNER) {
+  const [count, limit] = await Promise.all([
+    countPublishedByOwner(ownerId, excludeBusinessId),
+    getPublishedLimit(ownerId),
+  ]);
+  if (count >= limit) {
     throw new errors.ApplicationError(
-      `Has alcanzado el límite de ${MAX_PUBLISHED_PER_OWNER} negocios publicados por usuario. Archiva o pon en borrador alguno para publicar este.`,
+      `Has alcanzado el límite de ${limit} negocios publicados por usuario. Archiva o pon en borrador alguno para publicar este.`,
       { code: 'PUBLISH_LIMIT_REACHED' }
     );
   }
@@ -116,7 +119,7 @@ module.exports = {
       );
     }
 
-    // Límite: máx. 3 negocios publicados por usuario.
+    // Límite de negocios publicados por usuario (cupo del owner, default 3).
     if (data.businessStatus === 'published' && data.owner) {
       await assertPublishLimit(data.owner);
     }
@@ -126,8 +129,9 @@ module.exports = {
     const { data, where } = event.params;
     const businessId = where?.id;
 
-    // Límite: máx. 3 negocios publicados por usuario. Solo aplicamos si el
-    // update intenta poner el negocio como published y actualmente no lo está.
+    // Límite de negocios publicados por usuario (cupo del owner, default 3).
+    // Solo aplicamos si el update intenta poner el negocio como published y
+    // actualmente no lo está.
     if (data.businessStatus === 'published' && businessId) {
       const current = await strapi.db.query('api::business.business').findOne({
         where: { id: businessId },

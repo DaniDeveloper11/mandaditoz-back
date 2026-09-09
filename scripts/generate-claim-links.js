@@ -270,7 +270,16 @@ async function run() {
   }
   console.log('');
 
-  await app.destroy();
+  // tarn (el pool de conexiones de knex) rechaza sus operaciones pendientes al
+  // cerrar, y ese rechazo llega fuera de este await: sin esto el proceso muere
+  // con un stack de "aborted" cuando el trabajo ya terminó y los enlaces ya se
+  // guardaron, que parece un fallo y no lo es.
+  process.on('unhandledRejection', () => {});
+  try {
+    await app.destroy();
+  } catch {
+    // El proceso termina igual; no hay nada que rescatar.
+  }
   process.exit(0);
 }
 

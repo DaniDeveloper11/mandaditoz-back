@@ -43,6 +43,7 @@ Campos adicionales al usuario base de Strapi:
 - `bio` (text, max 300)
 - `emailVerified` (boolean, default false) — ver nota abajo
 - `lastLoginAt` (datetime)
+- `publishedBusinessLimit` (integer, default 3) — cupo de negocios publicados; ver abajo
 
 Relaciones del usuario:
 - `ownedBusinesses` → oneToMany → `business`
@@ -114,6 +115,34 @@ El método `create` está sobrescrito para inyectar `owner: ctx.state.user.id` a
 | `ownershipStatus` | `unclaimed`, `pending_claim`, `claimed` | `unclaimed` |
 
 > `status` es nombre reservado en Strapi 5 (draft/publish del Document Service). Todos los campos personalizados de estado usan prefijo: `businessStatus`, `claimStatus`.
+
+---
+
+## Cuántos negocios puede tener un dueño
+
+Un usuario puede tener **N negocios** (`owner` es manyToOne → `user.ownedBusinesses`) y
+crear **borradores sin límite**. El único tope es cuántos puede tener **publicados a la vez**.
+
+| Pieza | Archivo |
+|---|---|
+| Default y resolución del cupo | `src/utils/publish-limit.js` → `DEFAULT_PUBLISHED_LIMIT = 3`, `getPublishedLimit(ownerId)` |
+| Enforcement | `src/api/business/content-types/business/lifecycles.js` → `assertPublishLimit()` en `beforeCreate` y `beforeUpdate` |
+| Lo que ve el frontend | `GET /api/businesses/mine` → `meta.publishedCount` / `meta.publishedLimit` |
+
+**Para darle cupo extra a un dueño:** Content Manager → User → `publishedBusinessLimit`
+→ pon el número que le toque. Vacío o `NULL` = 3.
+
+La migración `database/migrations/003-published-business-limit-backfill.sql` puso 3 a
+los usuarios que ya existían cuando se agregó el campo (solo a los `NULL`, nunca baja a
+nadie). Aun así el fallback en código sigue siendo la garantía: Strapi **no** escribe el
+default del schema como DEFAULT de la columna, y un `ALTER COLUMN ... SET DEFAULT` desde
+una migración no sobrevive — las migraciones corren antes del sync de esquema y el sync
+se lleva el default por delante, sin error visible.
+
+El conteo solo cuenta negocios con `businessStatus: 'published'` y `archivedAt: null`:
+archivar o pasar a borrador libera cupo. Al excederlo, la API responde 400 con
+`error.details.code = 'PUBLISH_LIMIT_REACHED'` y un mensaje que ya trae el cupo real
+del usuario.
 
 ---
 

@@ -1,5 +1,6 @@
 'use strict';
 const { factories } = require('@strapi/strapi');
+const { getPublishedLimit } = require('../../../utils/publish-limit');
 
 module.exports = factories.createCoreController('api::business.business', ({ strapi }) => ({
   async create(ctx) {
@@ -164,19 +165,23 @@ module.exports = factories.createCoreController('api::business.business', ({ str
       pagination: query.pagination ?? { pageSize: 100 },
     });
 
-    const publishedCount = await strapi.db.query('api::business.business').count({
-      where: {
-        owner: user.id,
-        businessStatus: 'published',
-        archivedAt: null,
-      },
-    });
+    const [publishedCount, publishedLimit] = await Promise.all([
+      strapi.db.query('api::business.business').count({
+        where: {
+          owner: user.id,
+          businessStatus: 'published',
+          archivedAt: null,
+        },
+      }),
+      // Cupo del dueño: default 3, ampliable por usuario desde el admin.
+      getPublishedLimit(user.id),
+    ]);
 
     return {
       data: results,
       meta: {
         publishedCount,
-        publishedLimit: 3,
+        publishedLimit,
       },
     };
   },

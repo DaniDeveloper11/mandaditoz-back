@@ -1985,6 +1985,14 @@ export interface PluginUsersPermissionsUser
     phone: Schema.Attribute.String;
     provider: Schema.Attribute.String;
     publishedAt: Schema.Attribute.DateTime;
+    publishedBusinessLimit: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 1;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<3>;
     reports: Schema.Attribute.Relation<'oneToMany', 'api::report.report'>;
     resetPasswordToken: Schema.Attribute.String & Schema.Attribute.Private;
     reviews: Schema.Attribute.Relation<'oneToMany', 'api::review.review'>;

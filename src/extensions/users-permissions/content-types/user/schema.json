@@ -91,6 +91,12 @@
     "lastLoginAt": {
       "type": "datetime"
     },
+    "publishedBusinessLimit": {
+      "type": "integer",
+      "min": 1,
+      "default": 3,
+      "description": "Cuantos negocios puede tener publicados a la vez. Vacio = 3 (default). Subelo aqui para darle cupo extra a un duenio; los borradores no cuentan."
+    },
     "pendingRedirect": {
       "type": "string",
       "maxLength": 255,
