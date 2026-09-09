@@ -132,17 +132,39 @@ crear **borradores sin límite**. El único tope es cuántos puede tener **publi
 **Para darle cupo extra a un dueño:** Content Manager → User → `publishedBusinessLimit`
 → pon el número que le toque. Vacío o `NULL` = 3.
 
-La migración `database/migrations/003-published-business-limit-backfill.sql` puso 3 a
-los usuarios que ya existían cuando se agregó el campo (solo a los `NULL`, nunca baja a
-nadie). Aun así el fallback en código sigue siendo la garantía: Strapi **no** escribe el
-default del schema como DEFAULT de la columna, y un `ALTER COLUMN ... SET DEFAULT` desde
-una migración no sobrevive — las migraciones corren antes del sync de esquema y el sync
-se lleva el default por delante, sin error visible.
+La columna la crea y rellena `database/migrations/003-add-published-business-limit.sql`
+(solo toca los `NULL`, nunca le baja el cupo a nadie). El fallback en código sigue siendo
+la garantía de que vacío = 3: Strapi no escribe el default del schema como DEFAULT de la
+columna.
 
 El conteo solo cuenta negocios con `businessStatus: 'published'` y `archivedAt: null`:
 archivar o pasar a borrador libera cupo. Al excederlo, la API responde 400 con
 `error.details.code = 'PUBLISH_LIMIT_REACHED'` y un mensaje que ya trae el cupo real
 del usuario.
+
+---
+
+## Agregar un campo nuevo: el schema JSON NO basta para producción
+
+Declarar un atributo en un `schema.json` lo crea en la base **solo en `develop`**. Con
+`NODE_ENV=production`, `strapi start` no aplica cambios de esquema: no crea la columna,
+y aun así reescribe el esquema persistido (`strapi_content_types_schema`) como si
+estuviera al día, así que tampoco la crea en arranques posteriores. El resultado es un
+campo que funciona perfecto en local y no existe en prod.
+
+**Todo campo nuevo necesita su `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` en
+`database/migrations/`.** Ver `003-add-published-business-limit.sql` como plantilla.
+
+Otras dos cosas que conviene saber de esas migraciones:
+
+- Corren **dentro** del sync de esquema y **antes** de que Strapi cree o altere
+  columnas. Una migración que asume que la columna del schema JSON ya existe revienta
+  con `column ... does not exist` justo en el despliegue que la estrena. Escríbelas
+  autosuficientes: que creen lo que van a tocar.
+- Un `MigrationError` **aborta el arranque de Strapi**. Una migración mal escrita no
+  degrada: tira el servicio.
+- Se registran en la tabla `strapi_migrations` y corren una sola vez. Para reprobar una
+  en local: borra su fila ahí, deshaz su efecto y reinicia.
 
 ---
 
