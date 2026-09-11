@@ -286,6 +286,14 @@
       "target": "api::claim.claim",
       "mappedBy": "business"
     },
+    "events": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::city-post.city-post",
+      "mappedBy": "businesses",
+      "private": true,
+      "description": "Eventos y avisos de la cartelera que tienen a este negocio como sede u organizador. No confundir con business-event, que es analitica de trafico. PRIVATE a proposito: ?populate=events esquivaria el controller de city-post, que es el unico que fuerza postStatus=published, y expondria borradores del municipio. Para leerlos desde el front: /api/city-posts?filters[businesses][slug][$eq]=... Sigue visible en el panel admin."
+    },
     "archivedAt": {
       "type": "datetime",
       "description": "Soft delete: si no es null, el negocio está archivado"

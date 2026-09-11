@@ -602,6 +602,11 @@ export interface ApiBusinessBusiness extends Struct.CollectionTypeSchema {
         maxLength: 3000;
       }>;
     email: Schema.Attribute.Email;
+    events: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::city-post.city-post'
+    > &
+      Schema.Attribute.Private;
     featuredOrder: Schema.Attribute.Integer &
       Schema.Attribute.SetMinMax<
         {
@@ -847,6 +852,117 @@ export interface ApiCategoryCategory extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiCityPostCityPost extends Struct.CollectionTypeSchema {
+  collectionName: 'city_posts';
+  info: {
+    description: 'Cartelera del municipio: eventos con fecha, avisos con vigencia y carteles de fiestas patronales. Se captura SOLO desde el panel admin. Ojo: business-event es analitica de trafico, no tiene nada que ver con esto.';
+    displayName: 'Evento o Aviso';
+    pluralName: 'city-posts';
+    singularName: 'city-post';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    allDay: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    businesses: Schema.Attribute.Relation<
+      'manyToMany',
+      'api::business.business'
+    >;
+    city: Schema.Attribute.Relation<'manyToOne', 'api::city.city'> &
+      Schema.Attribute.Required;
+    contactPhone: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 20;
+      }>;
+    coverImage: Schema.Attribute.Media<'images'>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    description: Schema.Attribute.RichText &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 5000;
+      }>;
+    endAt: Schema.Attribute.DateTime;
+    eventCategory: Schema.Attribute.Enumeration<
+      [
+        'fiesta_patronal',
+        'cultural',
+        'deportivo',
+        'feria',
+        'civico',
+        'religioso',
+        'infantil',
+        'servicio_publico',
+        'otro',
+      ]
+    > &
+      Schema.Attribute.DefaultTo<'otro'>;
+    externalUrl: Schema.Attribute.String;
+    featuredOrder: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 1;
+        },
+        number
+      >;
+    gallery: Schema.Attribute.Media<'images', true>;
+    geo: Schema.Attribute.Component<'shared.geo', false>;
+    isFeatured: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    kind: Schema.Attribute.Enumeration<['evento', 'aviso', 'cartel']> &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'evento'>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::city-post.city-post'
+    > &
+      Schema.Attribute.Private;
+    mapEmbedUrl: Schema.Attribute.Text;
+    organizerName: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 150;
+      }>;
+    postStatus: Schema.Attribute.Enumeration<
+      ['draft', 'published', 'archived']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'draft'>;
+    priceText: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 60;
+      }>;
+    publishedAt: Schema.Attribute.DateTime;
+    seo: Schema.Attribute.Component<'shared.seo', false>;
+    slug: Schema.Attribute.UID<'title'> & Schema.Attribute.Required;
+    startAt: Schema.Attribute.DateTime & Schema.Attribute.Required;
+    summary: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 200;
+      }>;
+    ticketUrl: Schema.Attribute.String;
+    title: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 150;
+        minLength: 3;
+      }>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    venueAddress: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 300;
+      }>;
+    venueName: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 150;
+      }>;
+    visibleInAllCities: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
+  };
+}
+
 export interface ApiCityCity extends Struct.CollectionTypeSchema {
   collectionName: 'cities';
   info: {
@@ -890,6 +1006,11 @@ export interface ApiCityCity extends Struct.CollectionTypeSchema {
       'api::business.business'
     >;
     center: Schema.Attribute.Component<'shared.geo', false>;
+    cityPosts: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::city-post.city-post'
+    > &
+      Schema.Attribute.Private;
     createdAt: Schema.Attribute.DateTime;
     createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
       Schema.Attribute.Private;
@@ -2029,6 +2150,7 @@ declare module '@strapi/strapi' {
       'api::business-hour.business-hour': ApiBusinessHourBusinessHour;
       'api::business.business': ApiBusinessBusiness;
       'api::category.category': ApiCategoryCategory;
+      'api::city-post.city-post': ApiCityPostCityPost;
       'api::city.city': ApiCityCity;
       'api::claim.claim': ApiClaimClaim;
       'api::contact-message.contact-message': ApiContactMessageContactMessage;

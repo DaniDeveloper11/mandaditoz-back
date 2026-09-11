@@ -1,0 +1,167 @@
+{
+  "kind": "collectionType",
+  "collectionName": "city_posts",
+  "info": {
+    "singularName": "city-post",
+    "pluralName": "city-posts",
+    "displayName": "Evento o Aviso",
+    "description": "Cartelera del municipio: eventos con fecha, avisos con vigencia y carteles de fiestas patronales. Se captura SOLO desde el panel admin. Ojo: business-event es analitica de trafico, no tiene nada que ver con esto."
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true,
+      "minLength": 3,
+      "maxLength": 150
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "title",
+      "required": true
+    },
+    "kind": {
+      "type": "enumeration",
+      "enum": ["evento", "aviso", "cartel"],
+      "default": "evento",
+      "required": true,
+      "description": "evento = con fecha y hora; aviso = comunicado con vigencia; cartel = imagen-first (cartelera de fiestas)"
+    },
+    "eventCategory": {
+      "type": "enumeration",
+      "enum": [
+        "fiesta_patronal",
+        "cultural",
+        "deportivo",
+        "feria",
+        "civico",
+        "religioso",
+        "infantil",
+        "servicio_publico",
+        "otro"
+      ],
+      "default": "otro"
+    },
+    "summary": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "Resumen para la tarjeta de la cartelera y la meta description"
+    },
+    "description": {
+      "type": "richtext",
+      "maxLength": 5000
+    },
+    "coverImage": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["images"],
+      "description": "Portada. Cuando kind = cartel ESTE es el contenido principal: se renderiza completo, sin recortar."
+    },
+    "gallery": {
+      "type": "media",
+      "multiple": true,
+      "required": false,
+      "allowedTypes": ["images"]
+    },
+    "startAt": {
+      "type": "datetime",
+      "required": true
+    },
+    "endAt": {
+      "type": "datetime",
+      "description": "Fin de vigencia. Si se deja vacio lo rellena el lifecycle (evento/cartel = startAt; aviso = startAt + 30 dias). Nunca queda nulo porque toda la UI filtra por endAt >= now."
+    },
+    "allDay": {
+      "type": "boolean",
+      "default": false,
+      "description": "Si es true la UI no muestra la hora"
+    },
+    "venueName": {
+      "type": "string",
+      "maxLength": 150,
+      "description": "Lugar: 'Plaza principal', 'Explanada municipal'"
+    },
+    "venueAddress": {
+      "type": "string",
+      "maxLength": 300,
+      "description": "Direccion en texto libre. A proposito NO se usa el componente shared.address: ese exige street y un evento en la plaza no tiene calle ni numero."
+    },
+    "geo": {
+      "type": "component",
+      "repeatable": false,
+      "component": "shared.geo"
+    },
+    "mapEmbedUrl": {
+      "type": "text",
+      "description": "URL de embed de Google Maps (iframe src)"
+    },
+    "businesses": {
+      "type": "relation",
+      "relation": "manyToMany",
+      "target": "api::business.business",
+      "inversedBy": "events",
+      "description": "Negocios ligados al evento: sede, organizadores, patrocinadores o los puestos que participan. Opcional y varios: el evento aparece en la ficha de cada uno. El primero se toma como la sede principal."
+    },
+    "organizerName": {
+      "type": "string",
+      "maxLength": 150,
+      "description": "Organizador cuando no hay negocio: presidencia municipal, comite de fiestas, etc."
+    },
+    "contactPhone": {
+      "type": "string",
+      "maxLength": 20
+    },
+    "externalUrl": {
+      "type": "string",
+      "regex": "^https?:\\/\\/[^\\s]+\\.[^\\s]+$",
+      "description": "Evento de Facebook, sitio del municipio"
+    },
+    "ticketUrl": {
+      "type": "string",
+      "regex": "^https?:\\/\\/[^\\s]+\\.[^\\s]+$"
+    },
+    "priceText": {
+      "type": "string",
+      "maxLength": 60,
+      "description": "'Entrada libre', '$150', 'Cooperacion voluntaria'"
+    },
+    "city": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::city.city",
+      "inversedBy": "cityPosts",
+      "required": true
+    },
+    "visibleInAllCities": {
+      "type": "boolean",
+      "default": false,
+      "description": "Si es true el evento aparece en la cartelera de cualquier municipio, no solo en su city base. Mismo patron que business.visibleInAllCities."
+    },
+    "postStatus": {
+      "type": "enumeration",
+      "enum": ["draft", "published", "archived"],
+      "default": "draft",
+      "required": true,
+      "description": "El nombre lleva prefijo porque 'status' es reservado en Strapi 5"
+    },
+    "isFeatured": {
+      "type": "boolean",
+      "default": false,
+      "description": "Fija el post arriba en la cartelera"
+    },
+    "featuredOrder": {
+      "type": "integer",
+      "min": 1,
+      "description": "Posicion manual: 1 = primero. Vacio = se ordena por fecha al final de los numerados"
+    },
+    "seo": {
+      "type": "component",
+      "repeatable": false,
+      "component": "shared.seo"
+    }
+  }
+}

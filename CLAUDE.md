@@ -175,6 +175,52 @@ Otras dos cosas que conviene saber de esas migraciones:
 
 ---
 
+## Cartelera del municipio (`city-post`)
+
+Eventos con fecha, avisos con vigencia y carteles de fiestas patronales, por municipio.
+API: `/api/city-posts`. En el panel se llama **Evento o Aviso**.
+
+> ⚠️ **No confundir con `business-event`**, que es analítica de tráfico
+> (`profile_view`, `phone_click`, `whatsapp_click`) y no tiene nada que ver con una
+> cartelera. De ahí el nombre `city-post`.
+
+- **Autoría exclusiva del panel admin.** Ningún rol tiene `create`/`update`/`delete`:
+  `src/index.js` solo concede `find`/`findOne`, y a los tres roles (Public,
+  Authenticated y BusinessOwner), porque los permisos en Strapi no se heredan.
+- **`postStatus`** (`draft` | `published` | `archived`) — lleva prefijo porque `status`
+  es reservado en Strapi 5, igual que `businessStatus`. El controller fuerza
+  `postStatus = 'published'` en `find` **sin condición de sesión**, a diferencia de
+  `business.find` (que exime al usuario autenticado para que un dueño vea sus propias
+  fichas en borrador): un `city-post` no tiene dueño, así que nadie lo lee en borrador
+  por la API.
+- **`endAt` nunca es nulo.** El lifecycle lo rellena si el admin lo deja vacío
+  (`evento`/`cartel` → fin del día local de `startAt`; `aviso` → +30 días), para que
+  toda la UI filtre la vigencia con UNA condición indexable (`endAt >= now`) y pegue
+  con el índice parcial `idx_city_posts_cartelera`. La zona horaria se calcula con
+  `Intl` y `BUSINESS_TIMEZONE`, no con el reloj del proceso — mismo motivo que
+  `src/utils/is-open.js`: el servidor corre en UTC y un evento de un día se caería de
+  la cartelera 6 horas antes.
+- **El error de rango solo salta si el `endAt` inválido viene en el payload.** Si el
+  `endAt` guardado quedó antes de un `startAt` nuevo, se recalcula en silencio: ese
+  valor lo puso el propio lifecycle y hacer fallar "mover la fecha del aviso" no tiene
+  arreglo obvio desde el panel.
+- **Las relaciones inversas `business.events` y `city.cityPosts` son `private: true`.**
+  No es un descuido: `?populate=events` esquiva el controller de `city-post` — el único
+  que fuerza `postStatus = 'published'` — y expondría los borradores del municipio.
+  Para leer la cartelera de un negocio:
+  `/api/city-posts?filters[businesses][slug][$eq]=...`. En el panel admin siguen visibles.
+- **`businesses` es manyToMany, no una sola sede.** Un evento puede llevar varios
+  negocios (sede, organizadores, patrocinadores, los puestos que participan) y un negocio
+  puede aparecer en varios eventos. El orden lo guarda `business_ord` en
+  `city_posts_businesses_lnk`: **el primero se toma como la sede principal**. El campo
+  siempre se escribe como array, aunque sea uno solo.
+- **`venueName` + `venueAddress` en vez del componente `shared.address`**: ese exige
+  `street` y un evento en la plaza principal no tiene calle ni número.
+- Demo: `node scripts/seed-city-posts.js` (idempotente por slug; siembra también un
+  borrador a propósito, para comprobar que la API pública no lo devuelve).
+
+---
+
 ## Rol BusinessOwner
 Rol personalizado creado manualmente en el panel: **Settings → Users & Permissions → Roles → BusinessOwner**
 
@@ -364,6 +410,12 @@ Si el error es "Invalid identifier or password", el problema es 1, 2 o 3 — NO 
 
 ### 6. `strapi.db.query()` sí retorna el campo `password`
 Aunque `password` es `private: true`, la capa de DB devuelve todos los campos incluyendo el hash.
+
+### 7. En el Document Service se acota con `limit`, no con `pagination`
+`strapi.documents(uid).findMany({ pagination: { pageSize: 3 } })` **ignora la opción en
+silencio y devuelve todo** (440 negocios en local, no 3). La opción válida es `limit` (y
+`start`). Ya mordió dos veces: hay una nota igual en `scripts/generate-claim-links.js:206`.
+Pasa desapercibido porque el script sigue funcionando — solo trae de más.
 
 ---
 

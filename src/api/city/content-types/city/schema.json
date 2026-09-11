@@ -62,6 +62,14 @@
       "default": 0,
       "min": 0
     },
+    "cityPosts": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::city-post.city-post",
+      "mappedBy": "city",
+      "private": true,
+      "description": "Cartelera del municipio. PRIVATE por el mismo motivo que business.events: ?populate=cityPosts se saltaria el filtro de postStatus del controller de city-post. Para leerla: /api/city-posts?filters[city][slug][$eq]=..."
+    },
     "blogUrl": {
       "type": "string",
       "regex": "^https?://.+",
