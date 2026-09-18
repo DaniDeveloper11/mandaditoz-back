@@ -296,6 +296,58 @@ Archivo: `src/extensions/users-permissions/strapi-server.js`
 - Campos sensibles (`password`, `role`, `confirmed`, `blocked`) bloqueados
 - Handler: `plugin.controllers.user.updateMe`
 
+**`POST /api/auth/google`** — Alta e inicio de sesión con cuenta de Google
+- Público (`auth: false`), con el mismo `rateLimit` que `/auth/local`
+- Body: `{ idToken }`. Un solo campo, y es lo único que se lee.
+- Devuelve `{ jwt, user }` — el usuario entra de inmediato. No se manda correo de
+  confirmación: Google ya verificó la dirección, que es justo lo que ese correo comprueba.
+- Handler: `plugin.controllers.user.loginWithGoogle`; verificación en `src/utils/google-auth.js`
+- Env: `GOOGLE_CLIENT_IDS` (uno o varios separados por comas). **Vacío = el endpoint
+  responde 400**; el frontend tampoco pinta el botón, así que la función simplemente no existe.
+
+### Por qué NO se usa `/api/connect/google` (el flujo nativo de Strapi)
+El flujo de `grant` que trae el plugin es una cadena de redirects entre el backend, Google y
+el frontend. Eso **no sirve en la app Android**: Google bloquea OAuth dentro de un WebView
+(`disallowed_useragent`) y desde `https://localhost` de Capacitor no hay a dónde volver.
+Además, `grant` arma la URL de vuelta como `${callback}?${qs}` — siempre con `?`, nunca con
+`&` (`node_modules/grant/lib/response.js`), así que el truco de pasar
+`?callback=...&redirect=/destino` para conservar a dónde iba el usuario produce una URL rota.
+
+Los dos clientes obtienen un `id_token` por su cuenta (web con Google Identity Services,
+Android con `@capgo/capacitor-social-login`, que lo pide con el **mismo client id web**) y lo
+mandan a este único endpoint. Un solo camino de verificación en el servidor.
+
+### Vinculación con cuentas locales (decisión deliberada)
+Si ya hay un usuario `provider: 'local'` con ese correo, **se entra a esa misma cuenta** en vez
+de fallar con "Email is already taken" (que es lo que hace el `providers.connect` del plugin).
+Reglas:
+- Solo si Google reporta `email_verified: true`. Sin eso, cualquiera que registre
+  `victima@dominio.com` en un Workspace sin verificar entraría a la cuenta de la víctima.
+- **`provider` no se toca**: sigue siendo `local` y la contraseña sigue sirviendo, porque
+  `/auth/local` filtra por `provider = 'local'` y cambiarlo dejaría al usuario sin su forma
+  original de entrar.
+- De paso pone `confirmed` y `emailVerified` en `true`: el dueño que nunca abrió el correo
+  de confirmación queda desbloqueado, porque Google acaba de aportar la misma prueba.
+
+La seguridad es equivalente al "olvidé mi contraseña", que también llega a ese buzón: quien
+controla el correo ya podía entrar.
+
+### Alta nueva por Google
+- `provider: 'google'`, `confirmed: true`, `emailVerified: true`, sin contraseña.
+- Rol **`Authenticated`** aunque venga a publicar un negocio: los roles son niveles
+  acumulativos y el `afterCreate` de `business` lo asciende a `BusinessOwner` al publicar el primero.
+- `username` se deriva del correo (`usernameDisponible()`) porque nadie lo escribe, y se
+  desempata con un sufijo: `juan@gmail.com` y `juan@hotmail.com` chocarían.
+- **`phone` queda vacío.** El alta por correo de comensal lo exige (y lo usa como `username`
+  para poder entrar con el WhatsApp); por Google no hay de dónde sacarlo. Hoy nada lo
+  consume en el frontend, pero tenerlo presente cuando lleguen los pedidos.
+- Se crea con `strapi.db.query(...).create()`, no con `userService.add()`: no hay contraseña
+  que hashear. El lifecycle `beforeCreate` de `src/index.js` ya contemplaba este caso.
+
+### Sin migración
+Este endpoint **no agrega columnas** (`provider`, `confirmed` y `emailVerified` ya existen), así
+que no aplica la regla de `ALTER TABLE` para producción.
+
 > En Strapi 5 el controller `auth` del plugin NO es extensible directamente.
 > Todos los handlers personalizados deben agregarse a `plugin.controllers.user`.
 

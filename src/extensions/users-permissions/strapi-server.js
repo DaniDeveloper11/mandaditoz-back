@@ -2,10 +2,33 @@
 
 const { normalizeMxPhone } = require('../../utils/phone');
 const { safeRedirectPath } = require('../../utils/redirect');
+const { verifyGoogleIdToken } = require('../../utils/google-auth');
 
 const ALLOWED_UPDATE_FIELDS = ['displayName', 'phone', 'bio', 'avatar'];
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+/**
+ * `username` es único y obligatorio (mínimo 3), pero en un alta con Google no lo
+ * elige nadie: se deriva del correo. Dos personas distintas con `juan@gmail.com`
+ * y `juan@hotmail.com` chocarían, así que se desempata con un sufijo.
+ */
+async function usernameDisponible(base) {
+  const limpio = String(base).replace(/[^a-zA-Z0-9._-]/g, '').slice(0, 40);
+  const raiz = limpio.length >= 3 ? limpio : `usuario${limpio}`;
+
+  for (let intento = 0; intento < 5; intento += 1) {
+    const candidato = intento === 0 ? raiz : `${raiz}${1000 + Math.floor(Math.random() * 9000)}`;
+    const ocupado = await strapi.db
+      .query('plugin::users-permissions.user')
+      .findOne({ where: { username: candidato }, select: ['id'] });
+    if (!ocupado) return candidato;
+  }
+
+  // Cinco colisiones seguidas no pasan por azar; antes de fallar el registro se
+  // entrega algo que no puede chocar.
+  return `${raiz}-${Date.now().toString(36)}`;
+}
 
 module.exports = (plugin) => {
   plugin.controllers.user.registerOwner = async (ctx) => {
@@ -272,6 +295,123 @@ module.exports = (plugin) => {
       prefix: '',
       policies: [],
       middlewares: [],
+    },
+  });
+
+  /**
+   * POST /api/auth/google — inicio de sesión / registro con cuenta de Google.
+   *
+   * Un solo endpoint para los dos clientes: la web obtiene el `idToken` con
+   * Google Identity Services y la app Android con el plugin nativo (que pide el
+   * token con el mismo *client id* web, por eso el `aud` coincide). No se usa el
+   * flujo `/api/connect/google` de Strapi porque ese es una cadena de redirects
+   * que no existe dentro del WebView de Capacitor — y Google bloquea OAuth en
+   * WebViews, así que ahí nunca habría funcionado.
+   *
+   * Devuelve `{ jwt, user }` igual que `/auth/local`: el usuario entra de una vez.
+   * No hay correo de confirmación que mandar — Google ya verificó la dirección, y
+   * eso es exactamente lo que ese correo comprueba.
+   */
+  plugin.controllers.user.loginWithGoogle = async (ctx) => {
+    const { idToken } = ctx.request.body ?? {};
+
+    let profile;
+    try {
+      profile = await verifyGoogleIdToken(idToken);
+    } catch (err) {
+      if (err.cause) {
+        strapi.log.warn(`[auth-google] token rechazado: ${err.cause.message}`);
+      }
+      return ctx.badRequest(err.message);
+    }
+
+    const userQuery = strapi.db.query('plugin::users-permissions.user');
+
+    // Puede haber más de una fila con el mismo correo si en algún momento se
+    // apagó `unique_email`, así que se buscan todas y se elige por proveedor.
+    const matches = await userQuery.findMany({ where: { email: profile.email } });
+
+    // Orden de preferencia: la cuenta que ya nació de Google, y si no, la local.
+    //
+    // Entrar a la cuenta local es una VINCULACIÓN deliberada, no un descuido: el
+    // correo está verificado por Google (se exige arriba) y es el mismo buzón al
+    // que llega el enlace de "olvidé mi contraseña". Quien controla ese correo ya
+    // podía entrar; esto solo le ahorra el rodeo. La fila no se toca más de la
+    // cuenta: `provider` sigue siendo `local` y la contraseña sigue sirviendo,
+    // porque `/auth/local` filtra por `provider = 'local'` y cambiarlo dejaría al
+    // usuario sin su forma original de entrar.
+    let user =
+      matches.find((u) => u.provider === 'google') ??
+      matches.find((u) => u.provider === 'local') ??
+      matches[0];
+
+    if (user) {
+      if (user.blocked) {
+        return ctx.forbidden('Tu cuenta ha sido bloqueada por un administrador');
+      }
+
+      // Google acaba de comprobar el correo. Si la cuenta seguía esperando el
+      // clic del email de confirmación, esto la desbloquea: es la misma prueba.
+      const parche = {};
+      if (!user.confirmed)     parche.confirmed = true;
+      if (!user.emailVerified) parche.emailVerified = true;
+      if (!user.displayName && profile.name) parche.displayName = profile.name;
+
+      if (Object.keys(parche).length) {
+        user = await userQuery.update({ where: { id: user.id }, data: parche });
+      }
+
+      strapi.log.info(`[auth-google] login id=${user.id} provider=${user.provider}`);
+    } else {
+      const defaultRole = await strapi.db.query('plugin::users-permissions.role').findOne({
+        where: { type: 'authenticated' },
+      });
+      if (!defaultRole) {
+        return ctx.internalServerError('El rol Authenticated no existe.');
+      }
+
+      // Se crea con `strapi.db.query`, no con `userService.add()`: este usuario no
+      // tiene contraseña y el Document Service no aporta nada aquí. El lifecycle
+      // `beforeCreate` de `src/index.js` ve `provider !== 'local'` + `confirmed`
+      // y pone `emailVerified` solo; se manda explícito de todos modos para que
+      // el registro no dependa de ese orden.
+      //
+      // Nace como `Authenticated` (comensal) aunque venga a publicar un negocio:
+      // los roles son niveles acumulativos y el `afterCreate` de `business` lo
+      // asciende a BusinessOwner en cuanto publique el primero.
+      user = await userQuery.create({
+        data: {
+          username: await usernameDisponible(profile.email.split('@')[0]),
+          email: profile.email,
+          provider: 'google',
+          displayName: profile.name,
+          confirmed: true,
+          emailVerified: true,
+          blocked: false,
+          role: defaultRole.id,
+        },
+      });
+
+      strapi.log.info(`[auth-google] usuario creado id=${user.id} email=${user.email}`);
+    }
+
+    const jwt = strapi.plugin('users-permissions').service('jwt').issue({ id: user.id });
+    const { password, resetPasswordToken, confirmationToken, ...safeUser } = user;
+
+    return ctx.send({ jwt, user: safeUser });
+  };
+
+  plugin.routes['content-api'].routes.push({
+    method: 'POST',
+    path: '/auth/google',
+    handler: 'user.loginWithGoogle',
+    config: {
+      prefix: '',
+      auth: false,
+      policies: [],
+      // El mismo limitador que el plugin pone en `/auth/local`: el endpoint es
+      // público y verificar un JWT contra las llaves de Google cuesta CPU.
+      middlewares: ['plugin::users-permissions.rateLimit'],
     },
   });
 
