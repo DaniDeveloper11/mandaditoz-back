@@ -168,6 +168,31 @@ Otras dos cosas que conviene saber de esas migraciones:
 
 ---
 
+## Búsqueda de negocios (`GET /api/businesses?q=`)
+
+`q` no es un parámetro de Strapi: `business.find` lo resuelve con
+`src/utils/business-search.js`, lo convierte en `filters[id][$in]` y lo quita de la query.
+Todo lo demás (ciudad, categoría, destacados, orden, populate, paginación) sigue siendo el
+`find` core, así que `q` se combina con cualquier filtro.
+
+- **Sin acentos y sin mayúsculas**, en los dos lados: "panaderia" encuentra "Panadería",
+  "pena" encuentra "Peña". Se hace con `translate()`, **no** con la extensión `unaccent`.
+- Busca en nombre, `shortDescription`, `description`, categoría principal y secundarias
+  (y su padre), etiquetas, colonia y platillos del menú no archivados.
+- Cada palabra tiene que aparecer (AND entre palabras). Se ignoran las de 1 letra; máximo
+  5 palabras y 100 caracteres.
+- **Respaldo por errores de dedo**: solo si la búsqueda exacta da 0, se reintenta con
+  `word_similarity >= 0.6` de `pg_trgm` ("pizeria" → Pizzería). Con 0.5 ya mete ruido.
+- `pg_trgm` la crea `006-search-extensions.sql` dentro de un bloque que **atrapa el error**:
+  si el rol no tiene permiso, la migración deja un WARNING y el arranque sigue; el código
+  detecta que falta la extensión y se salta el respaldo. Es la excepción deliberada a "una
+  migración que falla tumba el servicio".
+- Sin índice: el texto por negocio se arma en cada consulta (~70 ms con 440 negocios).
+  Si el directorio llega a varios miles, materializarlo en una columna con índice GIN.
+- El filtro viejo con `$containsi` sigue funcionando: la app Android publicada lo manda así.
+
+---
+
 ## Componentes reutilizables
 - `shared.address` — dirección con 32 estados mexicanos
 - `shared.seo` — metaTitle, metaDescription, keywords, ogImage

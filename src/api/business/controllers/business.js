@@ -1,6 +1,7 @@
 'use strict';
 const { factories } = require('@strapi/strapi');
 const { getPublishedLimit } = require('../../../utils/publish-limit');
+const { findBusinessIdsByText } = require('../../../utils/business-search');
 
 module.exports = factories.createCoreController('api::business.business', ({ strapi }) => ({
   async create(ctx) {
@@ -20,6 +21,21 @@ module.exports = factories.createCoreController('api::business.business', ({ str
         ...ctx.query.filters,
         businessStatus: 'published',
       };
+    }
+
+    // Búsqueda de texto sin acentos (ver utils/business-search.js). `q` no es
+    // un parámetro de Strapi: se resuelve aquí a un filtro por id y se quita
+    // antes de que el core valide la query.
+    if (ctx.query.q !== undefined) {
+      const ids = await findBusinessIdsByText(ctx.query.q);
+      delete ctx.query.q;
+      if (ids) {
+        ctx.query.filters = {
+          ...ctx.query.filters,
+          // Un $in vacío no es fiable en todas las versiones; -1 no existe.
+          id: { $in: ids.length ? ids : [-1] },
+        };
+      }
     }
     return super.find(ctx);
   },
