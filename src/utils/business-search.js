@@ -56,11 +56,9 @@ const escapeLike = (t) => t.replace(/[\\%_]/g, (c) => `\\${c}`);
 
 // Un texto por negocio: nombre, descripciones, categorías principal y
 // secundarias (con su padre, para que "comida" encuentre a una taquería),
-// etiquetas, colonia y platillos del menú.
-const DOCS_CTE = `
-  docs AS (
-    SELECT b.id, ${norm(`concat_ws(' ',
-      b.name, b.short_description, b.description,
+// etiquetas, colonia y platillos del menú. `name_n` y `tax_n` (categorías +
+// etiquetas) van aparte para puntuar la relevancia.
+const TAX_SQL = `concat_ws(' ',
       (SELECT string_agg(concat_ws(' ', c.name, pc.name), ' ')
          FROM (SELECT category_id FROM businesses_category_lnk WHERE business_id = b.id
                UNION
@@ -70,17 +68,35 @@ const DOCS_CTE = `
          LEFT JOIN categories pc ON pc.id = pl.inv_category_id),
       (SELECT string_agg(t.name, ' ')
          FROM businesses_tags_lnk tl JOIN tags t ON t.id = tl.tag_id
-        WHERE tl.business_id = b.id),
-      (SELECT n.name
-         FROM businesses_neighborhood_lnk nl JOIN neighborhoods n ON n.id = nl.neighborhood_id
-        WHERE nl.business_id = b.id),
-      (SELECT string_agg(mi.name, ' ')
-         FROM menu_items_business_lnk ml JOIN menu_items mi ON mi.id = ml.menu_item_id
-        WHERE ml.business_id = b.id AND mi.archived_at IS NULL)
-    )`)} AS doc
-    FROM businesses b
-    WHERE b.archived_at IS NULL
+        WHERE tl.business_id = b.id))`;
+
+const DOCS_CTE = `
+  raw AS (
+    SELECT b.id, b.rating_average,
+           ${norm('b.name')} AS name_n,
+           ${norm(TAX_SQL)} AS tax_n,
+           ${norm(`concat_ws(' ',
+             b.short_description, b.description,
+             (SELECT n.name
+                FROM businesses_neighborhood_lnk nl JOIN neighborhoods n ON n.id = nl.neighborhood_id
+               WHERE nl.business_id = b.id),
+             (SELECT string_agg(mi.name, ' ')
+                FROM menu_items_business_lnk ml JOIN menu_items mi ON mi.id = ml.menu_item_id
+               WHERE ml.business_id = b.id AND mi.archived_at IS NULL))`)} AS rest_n
+      FROM businesses b
+     WHERE b.archived_at IS NULL
+  ),
+  docs AS (
+    SELECT *, concat_ws(' ', name_n, tax_n, rest_n) AS doc FROM raw
   )`;
+
+// Puntos por término: en el nombre pesa más que en la categoría o etiqueta,
+// y eso más que en la descripción o el menú. Que el nombre EMPIECE con el
+// término suma aparte ("tacos" → "Tacos Yeya" antes que "Mariscos y tacos").
+const W_NAME_PREFIX = 4;
+const W_NAME = 10;
+const W_TAX = 5;
+const W_REST = 1;
 
 let trgmAvailable = null;
 
@@ -100,26 +116,42 @@ async function hasTrgm() {
 
 async function runSearch(terms, fuzzy) {
   const conditions = [];
-  const bindings = [];
+  const scores = [];
+  const condBindings = [];
+  const scoreBindings = [];
   for (const term of terms) {
+    const like = `%${escapeLike(term)}%`;
     if (fuzzy && term.length >= FUZZY_MIN_TERM_LENGTH) {
       conditions.push(`(doc LIKE ? OR word_similarity(?, doc) >= ${FUZZY_THRESHOLD})`);
-      bindings.push(`%${escapeLike(term)}%`, term);
+      condBindings.push(like, term);
+      // En el respaldo manda el parecido: el más cercano al término, primero.
+      scores.push(`(${W_NAME} * word_similarity(?, name_n) + ${W_TAX} * word_similarity(?, tax_n))`);
+      scoreBindings.push(term, term);
     } else {
       conditions.push(`doc LIKE ?`);
-      bindings.push(`%${escapeLike(term)}%`);
+      condBindings.push(like);
+      scores.push(`(CASE WHEN name_n LIKE ? THEN ${W_NAME_PREFIX} ELSE 0 END
+        + CASE WHEN name_n LIKE ? THEN ${W_NAME}
+               WHEN tax_n LIKE ? THEN ${W_TAX}
+               ELSE ${W_REST} END)`);
+      scoreBindings.push(`${escapeLike(term)}%`, like, like);
     }
   }
   const { rows } = await strapi.db.connection.raw(
-    `WITH ${DOCS_CTE} SELECT id FROM docs WHERE ${conditions.join(' AND ')}`,
-    bindings
+    `WITH ${DOCS_CTE}
+     SELECT id, ${scores.join(' + ')} AS score
+       FROM docs
+      WHERE ${conditions.join(' AND ')}
+      ORDER BY score DESC, rating_average DESC NULLS LAST, id`,
+    [...scoreBindings, ...condBindings]
   );
   return rows.map((r) => r.id);
 }
 
 /**
- * Ids de los negocios que coinciden con `q`, o `null` si `q` no trae ningún
- * término utilizable (en ese caso no se filtra por texto).
+ * Ids de los negocios que coinciden con `q`, del más relevante al menos, o
+ * `null` si `q` no trae ningún término utilizable (en ese caso no se filtra
+ * por texto).
  */
 async function findBusinessIdsByText(q) {
   const terms = toTerms(q);

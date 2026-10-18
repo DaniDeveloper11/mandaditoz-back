@@ -179,6 +179,11 @@ Todo lo demás (ciudad, categoría, destacados, orden, populate, paginación) si
   "pena" encuentra "Peña". Se hace con `translate()`, **no** con la extensión `unaccent`.
 - Busca en nombre, `shortDescription`, `description`, categoría principal y secundarias
   (y su padre), etiquetas, colonia y platillos del menú no archivados.
+- **`sort=relevance`** (tampoco es de Strapi) ordena por puntuación: el término en el nombre
+  pesa 10 (+4 si el nombre empieza con él), en categoría/etiqueta 5, en el resto 1; empate
+  por `ratingAverage`. Como ese orden no cabe en un `sort` de Strapi, `findByRelevance`
+  pagina a mano: filtra los ids con el resto de filtros, corta la página y solo esa pasa
+  por el `find` core (populate y sanitizado de siempre). Sin `q`, `relevance` se ignora.
 - Cada palabra tiene que aparecer (AND entre palabras). Se ignoran las de 1 letra; máximo
   5 palabras y 100 caracteres.
 - **Respaldo por errores de dedo**: solo si la búsqueda exacta da 0, se reintenta con

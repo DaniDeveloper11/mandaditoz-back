@@ -26,6 +26,12 @@ module.exports = factories.createCoreController('api::business.business', ({ str
     // Búsqueda de texto sin acentos (ver utils/business-search.js). `q` no es
     // un parámetro de Strapi: se resuelve aquí a un filtro por id y se quita
     // antes de que el core valide la query.
+    //
+    // `sort=relevance` tampoco existe en Strapi: con `q` ordena por la
+    // puntuación de la búsqueda; sin `q` se ignora y queda el orden default.
+    const byRelevance = ctx.query.sort === 'relevance';
+    if (byRelevance) delete ctx.query.sort;
+
     if (ctx.query.q !== undefined) {
       const ids = await findBusinessIdsByText(ctx.query.q);
       delete ctx.query.q;
@@ -35,9 +41,46 @@ module.exports = factories.createCoreController('api::business.business', ({ str
           // Un $in vacío no es fiable en todas las versiones; -1 no existe.
           id: { $in: ids.length ? ids : [-1] },
         };
+        if (byRelevance && ids.length) return this.findByRelevance(ctx, ids);
       }
     }
     return super.find(ctx);
+  },
+
+  // El orden de `ids` (relevancia) no se puede expresar como `sort` de Strapi,
+  // así que la paginación se hace aquí: primero se averigua cuáles de esos ids
+  // pasan el resto de filtros (ciudad, categoría, destacados…), se corta la
+  // página en orden de relevancia, y solo esa página pasa por el find core
+  // para que populate y sanitizado sean los de siempre.
+  async findByRelevance(ctx, ids) {
+    const { filters } = await this.sanitizeQuery(ctx);
+    const matching = await strapi.documents('api::business.business').findMany({
+      filters,
+      fields: ['id'],
+      limit: ids.length,
+    });
+    const allowed = new Set(matching.map((b) => b.id));
+    const ordered = ids.filter((id) => allowed.has(id));
+
+    const { page: rawPage, pageSize: rawPageSize } = ctx.query.pagination ?? {};
+    const maxLimit = strapi.config.get('api.rest.maxLimit', 100);
+    const pageSize = Math.min(Math.max(parseInt(rawPageSize, 10) || 25, 1), maxLimit);
+    const page = Math.max(parseInt(rawPage, 10) || 1, 1);
+    const pageIds = ordered.slice((page - 1) * pageSize, page * pageSize);
+
+    ctx.query.filters = { ...ctx.query.filters, id: { $in: pageIds.length ? pageIds : [-1] } };
+    ctx.query.pagination = { page: 1, pageSize: Math.max(pageIds.length, 1) };
+    const response = await super.find(ctx);
+
+    const pos = new Map(pageIds.map((id, i) => [id, i]));
+    response.data.sort((a, b) => pos.get(a.id) - pos.get(b.id));
+    response.meta.pagination = {
+      page,
+      pageSize,
+      pageCount: Math.ceil(ordered.length / pageSize),
+      total: ordered.length,
+    };
+    return response;
   },
 
   async update(ctx) {
