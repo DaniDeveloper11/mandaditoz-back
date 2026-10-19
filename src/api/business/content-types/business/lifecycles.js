@@ -119,6 +119,14 @@ module.exports = {
       );
     }
 
+    // Quien da de alta su propio negocio ya es su dueño. Antes quedaba con
+    // owner puesto pero en `unclaimed` (el controller `submit` lo fija así),
+    // y se contaba como "sin dueño" y mostraba "¿Es tu negocio?" a todos.
+    // Misma regla que sincronizarPropiedad en claim/lifecycles.js.
+    if (data.owner) {
+      data.ownershipStatus = 'claimed';
+    }
+
     // Límite de negocios publicados por usuario (cupo del owner, default 3).
     if (data.businessStatus === 'published' && data.owner) {
       await assertPublishLimit(data.owner);

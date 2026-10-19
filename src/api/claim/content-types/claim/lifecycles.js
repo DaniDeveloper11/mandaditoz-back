@@ -3,12 +3,82 @@
 const { renderBrandedEmail, esc } = require('../../../../utils/email-template');
 const { promoteToBusinessOwner } = require('../../../../utils/roles');
 
+/**
+ * `ownershipStatus` del negocio se DERIVA, no se fija a mano en cada rama:
+ *   - tiene owner                 -> claimed
+ *   - algún reclamo `pending`     -> pending_claim
+ *   - nada de lo anterior         -> unclaimed
+ *
+ * Fijarlo a mano dejaba negocios atorados: un reclamo `cancelled` no lo
+ * liberaba nunca, rechazar uno de dos reclamos pendientes lo devolvía a
+ * `unclaimed` con el otro esperando, y un reclamo nuevo sobre un negocio que ya
+ * tenía dueño lo bajaba de `claimed` a `pending_claim`. Importa más de lo que
+ * parece: `ownershipStatus !== 'unclaimed'` es el candado de un solo uso de los
+ * enlaces de invitación (controllers/claim.js), así que un negocio atorado
+ * también deja inservible su enlace.
+ */
+async function sincronizarPropiedad(businessDocumentId) {
+  if (!businessDocumentId) return;
+  const business = await strapi.documents('api::business.business').findOne({
+    documentId: businessDocumentId,
+    fields: ['ownershipStatus'],
+    populate: { owner: { fields: ['id'] } },
+  });
+  if (!business) return;
+
+  let estado = 'unclaimed';
+  if (business.owner) {
+    estado = 'claimed';
+  } else {
+    const pendientes = await strapi.documents('api::claim.claim').count({
+      filters: { business: { documentId: businessDocumentId }, claimStatus: 'pending' },
+    });
+    if (pendientes > 0) estado = 'pending_claim';
+  }
+
+  if (business.ownershipStatus !== estado) {
+    await strapi.documents('api::business.business').update({
+      documentId: businessDocumentId,
+      data: { ownershipStatus: estado },
+    });
+    strapi.log.info(`[claim] Negocio ${businessDocumentId}: ${business.ownershipStatus} -> ${estado}`);
+  }
+}
+
+// Estado y negocio del reclamo ANTES del cambio. El panel de Strapi manda todos
+// los campos en cada guardado, claimStatus incluido: sin comparar contra el
+// valor previo, editar las notas de un reclamo aprobado lo "aprobaba" otra vez
+// y reenviaba el correo al dueño.
+async function leerPrevio(where) {
+  const previo = await strapi.db.query('api::claim.claim').findOne({
+    where,
+    select: ['claimStatus'],
+    populate: { business: { select: ['documentId'] } },
+  });
+  return { status: previo?.claimStatus ?? null, businessDocumentId: previo?.business?.documentId ?? null };
+}
+
 module.exports = {
   async beforeUpdate(event) {
     const { params } = event;
+    event.state.previo = await leerPrevio(params.where);
+
     const newStatus = params.data?.claimStatus;
-    if (newStatus === 'approved' || newStatus === 'rejected' || newStatus === 'cancelled') {
+    const cambio = newStatus && newStatus !== event.state.previo.status;
+    if (cambio && (newStatus === 'approved' || newStatus === 'rejected' || newStatus === 'cancelled')) {
       params.data.reviewedAt = new Date();
+    }
+  },
+
+  async beforeDelete(event) {
+    event.state.previo = await leerPrevio(event.params.where);
+  },
+
+  async afterDelete(event) {
+    try {
+      await sincronizarPropiedad(event.state.previo?.businessDocumentId);
+    } catch (err) {
+      strapi.log.error('[claim] Error sincronizando negocio tras borrar reclamo:', err);
     }
   },
 
@@ -25,14 +95,9 @@ module.exports = {
       return;
     }
 
-    await strapi.documents('api::business.business').update({
-      documentId: claim.business.documentId,
-      data: { ownershipStatus: 'pending_claim' },
-    });
-
-    strapi.log.info(
-      `[claim] Negocio ${claim.business.documentId} marcado como pending_claim`
-    );
+    // Normalmente queda en pending_claim; si el negocio ya tiene dueño se
+    // queda en claimed (el reclamo espera revisión sin degradar al dueño).
+    await sincronizarPropiedad(claim.business.documentId);
 
     try {
       await sendAdminClaimNotification(claim);
@@ -44,8 +109,9 @@ module.exports = {
   async afterUpdate(event) {
     const { result, params } = event;
     const newStatus = params.data?.claimStatus;
+    const previo = event.state.previo ?? {};
 
-    if (newStatus !== 'approved' && newStatus !== 'rejected') return;
+    if (!newStatus || newStatus === previo.status) return;
 
     try {
       const claim = await strapi.documents('api::claim.claim').findOne({
@@ -58,29 +124,21 @@ module.exports = {
         return;
       }
 
-      if (newStatus === 'rejected') {
-        // Rechazar es el botón de deshacer. Como los reclamos por invitación se
-        // aprueban solos, aquí ya suele haber un dueño puesto: hay que quitarlo,
-        // no solo liberar el estado. Antes esto ni siquiera devolvía el negocio a
-        // `unclaimed` y se quedaba invisible para siempre en el listado de
-        // sin-dueño.
+      if (newStatus === 'rejected' || newStatus === 'cancelled') {
+        // Rechazar (o cancelar) es el botón de deshacer. Como los reclamos por
+        // invitación se aprueban solos, aquí ya suele haber un dueño puesto:
+        // hay que quitarlo, no solo liberar el estado.
         //
-        // Solo se toca si el dueño actual es el de ESTE reclamo: si no, se está
-        // rechazando a un segundo pretendiente y el dueño legítimo no se toca.
+        // Solo se quita si el dueño actual es el de ESTE reclamo: si no, se
+        // está rechazando a un segundo pretendiente y el dueño legítimo no se
+        // toca.
         const owner = claim.business.owner;
-        const esDeEsteReclamo = owner && owner.id === claim.user.id;
-
-        if (!owner || esDeEsteReclamo) {
+        if (owner && owner.id === claim.user.id) {
           await strapi.documents('api::business.business').update({
             documentId: claim.business.documentId,
-            data: {
-              ownershipStatus: 'unclaimed',
-              ...(esDeEsteReclamo ? { owner: null, isVerified: false, verifiedAt: null } : {}),
-            },
+            data: { owner: null, isVerified: false, verifiedAt: null, ownershipStatus: 'unclaimed' },
           });
-          strapi.log.info(
-            `[claim] Negocio ${claim.business.documentId} ${esDeEsteReclamo ? 'revocado' : 'liberado'} tras rechazo`
-          );
+          strapi.log.info(`[claim] Negocio ${claim.business.documentId} revocado tras ${newStatus}`);
         }
       }
 
@@ -102,7 +160,15 @@ module.exports = {
         );
       }
 
-      await sendClaimEmail(claim, newStatus);
+      // Cubre también volver un reclamo a `pending` desde el panel, y que otro
+      // reclamo pendiente del mismo negocio lo mantenga en pending_claim.
+      await sincronizarPropiedad(claim.business.documentId);
+
+      // `cancelled` no avisa: lo usa el admin para limpiar, no es una decisión
+      // sobre la solicitud de esa persona.
+      if (newStatus === 'approved' || newStatus === 'rejected') {
+        await sendClaimEmail(claim, newStatus);
+      }
 
     } catch (err) {
       strapi.log.error('[claim] Error al procesar claim:', err);

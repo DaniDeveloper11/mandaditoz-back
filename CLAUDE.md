@@ -265,19 +265,42 @@ Permisos del rol:
 ### Lifecycle hooks del modelo `claim`
 Archivo: `src/api/claim/content-types/claim/lifecycles.js`
 
-**`afterCreate`** — Se dispara cuando el usuario envía un claim (`POST /api/claims`):
-- Hace `findOne` del claim con `business` populado (el `result` no incluye relaciones)
-- Actualiza el negocio: `ownershipStatus = "pending_claim"`
+**`ownershipStatus` del negocio se deriva, nunca se fija a mano** (`sincronizarPropiedad`):
 
-**`beforeUpdate`** — Se dispara antes de guardar el claim:
-- Si `claimStatus` cambia a `approved`, `rejected` o `cancelled`, asigna `reviewedAt = now` automáticamente
+| Condición | `ownershipStatus` |
+|---|---|
+| el negocio tiene `owner` | `claimed` |
+| si no, existe algún claim `pending` de ese negocio | `pending_claim` |
+| nada de lo anterior | `unclaimed` |
 
-**`afterUpdate`** — Se dispara cuando el admin cambia `claimStatus` a `approved`:
-- Hace `findOne` del claim con `user` y `business` populados
-- Asigna el rol `BusinessOwner` al usuario del claim
-- Actualiza el negocio: `owner = user`, `ownershipStatus = "claimed"`
+Se recalcula al crear, cambiar de estado o borrar un claim. Fijarlo a mano en cada rama
+dejaba negocios atorados (un `cancelled` no liberaba nada, rechazar uno de dos pendientes
+lo devolvía a `unclaimed`, un claim sobre un negocio con dueño lo bajaba a
+`pending_claim`). No es cosmético: `ownershipStatus !== 'unclaimed'` es el candado de un
+solo uso de los enlaces de invitación (`controllers/claim.js`), así que un negocio atorado
+también deja inservible su enlace. La misma regla aplica al alta: el `beforeCreate` de
+`business` pone `claimed` cuando el negocio nace con `owner`.
 
-> Nota: si el claim es rechazado (`claimStatus: "rejected"`) o cancelado, el negocio **no** revierte automáticamente a `"unclaimed"` — pendiente de implementar.
+**Solo se actúa si `claimStatus` cambió de verdad.** El panel de Strapi manda todos los
+campos en cada guardado, `claimStatus` incluido; `beforeUpdate`/`beforeDelete` leen el
+estado previo (`event.state.previo`) y `afterUpdate` lo compara. Sin eso, editar las
+notas de un claim aprobado lo "aprobaba" otra vez y reenviaba el correo.
+
+- **`afterCreate`** — sincroniza el negocio y avisa al admin.
+- **`beforeUpdate`** — guarda el estado previo; pone `reviewedAt = now` si pasa a
+  `approved`, `rejected` o `cancelled`.
+- **`afterUpdate`**:
+  - `approved` → asciende al usuario a `BusinessOwner`, `owner = user`, `claimed`,
+    verificado. Correo al usuario.
+  - `rejected` / `cancelled` → si el dueño actual es el usuario de **este** claim (el caso
+    de los reclamos por invitación, que se aprueban solos), se le quita (`owner = null`,
+    sin verificar). Si el dueño es otro, no se toca. `rejected` manda correo; `cancelled`
+    no (es limpieza del admin, no una decisión sobre la solicitud).
+  - cualquier cambio (incluido volver a `pending`) → sincroniza el negocio.
+- **`beforeDelete` / `afterDelete`** — borrar un claim también sincroniza su negocio.
+
+Para destrabar datos viejos: `node scripts/sync-ownership-status.js` reporta las
+diferencias contra esa regla, y con `--apply` las corrige.
 
 > Nota: el campo se llama `claimStatus` (no `status`) porque `status` es un nombre reservado en Strapi 5 para el sistema draft/publish del Document Service.
 
