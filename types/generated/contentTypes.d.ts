@@ -1161,6 +1161,110 @@ export interface ApiContactMessageContactMessage
   };
 }
 
+export interface ApiCreatorCreator extends Struct.CollectionTypeSchema {
+  collectionName: 'creators';
+  info: {
+    description: 'Directorio de creadores de la region: influencers, fotografos, cronistas, podcasts y medios locales. Se captura SOLO desde el panel admin, igual que city-post. No confundir con city.bloggerName, que es el unico blog destacado en el menu de la ciudad.';
+    displayName: 'Voz del municipio';
+    pluralName: 'creators';
+    singularName: 'creator';
+  };
+  options: {
+    draftAndPublish: false;
+  };
+  attributes: {
+    audienceText: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 60;
+      }>;
+    avatar: Schema.Attribute.Media<'images'>;
+    bio: Schema.Attribute.Text &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 1200;
+      }>;
+    city: Schema.Attribute.Relation<'manyToOne', 'api::city.city'> &
+      Schema.Attribute.Required;
+    consentAt: Schema.Attribute.DateTime;
+    contactEmail: Schema.Attribute.Email;
+    contactPhone: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 20;
+      }>;
+    coverImage: Schema.Attribute.Media<'images'>;
+    coversTopics: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 200;
+      }>;
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    creatorStatus: Schema.Attribute.Enumeration<
+      ['draft', 'published', 'archived']
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'draft'>;
+    creatorType: Schema.Attribute.Enumeration<
+      [
+        'influencer',
+        'fotografo',
+        'videografo',
+        'podcast',
+        'musico',
+        'cronista',
+        'medio_local',
+        'artista',
+        'gastronomia',
+        'otro',
+      ]
+    > &
+      Schema.Attribute.Required &
+      Schema.Attribute.DefaultTo<'influencer'>;
+    featuredOrder: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 1;
+        },
+        number
+      >;
+    gallery: Schema.Attribute.Media<'images', true>;
+    handle: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 60;
+      }>;
+    isFeatured: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::creator.creator'
+    > &
+      Schema.Attribute.Private;
+    name: Schema.Attribute.String &
+      Schema.Attribute.Required &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 120;
+        minLength: 2;
+      }>;
+    publishedAt: Schema.Attribute.DateTime;
+    regionName: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 80;
+      }>;
+    seo: Schema.Attribute.Component<'shared.seo', false>;
+    slug: Schema.Attribute.UID<'name'> & Schema.Attribute.Required;
+    socialLinks: Schema.Attribute.Component<'business.social-link', true>;
+    tagline: Schema.Attribute.String &
+      Schema.Attribute.SetMinMaxLength<{
+        maxLength: 160;
+      }>;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    visibleInAllCities: Schema.Attribute.Boolean &
+      Schema.Attribute.DefaultTo<false>;
+    website: Schema.Attribute.String;
+  };
+}
+
 export interface ApiMenuItemMenuItem extends Struct.CollectionTypeSchema {
   collectionName: 'menu_items';
   info: {
@@ -2154,6 +2258,7 @@ declare module '@strapi/strapi' {
       'api::city.city': ApiCityCity;
       'api::claim.claim': ApiClaimClaim;
       'api::contact-message.contact-message': ApiContactMessageContactMessage;
+      'api::creator.creator': ApiCreatorCreator;
       'api::menu-item.menu-item': ApiMenuItemMenuItem;
       'api::menu-section.menu-section': ApiMenuSectionMenuSection;
       'api::neighborhood.neighborhood': ApiNeighborhoodNeighborhood;

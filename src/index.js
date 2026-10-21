@@ -18,6 +18,8 @@ const PUBLIC_PERMISSIONS = {
   // Cartelera del municipio. Solo lectura: la captura es exclusivamente del
   // panel admin, ningun rol tiene create/update/delete.
   'api::city-post.city-post': ['find', 'findOne'],
+  // Voces del municipio (directorio de creadores). Mismo caso: solo lectura.
+  'api::creator.creator': ['find', 'findOne'],
   'api::neighborhood.neighborhood': ['find', 'findOne'],
   'api::photo.photo': ['find', 'findOne'],
   'api::menu-section.menu-section': ['find', 'findOne'],
@@ -67,6 +69,7 @@ const AUTHENTICATED_PERMISSIONS = {
   'api::category.category': ['find', 'findOne'],
   'api::city.city': ['find', 'findOne'],
   'api::city-post.city-post': ['find', 'findOne'],
+  'api::creator.creator': ['find', 'findOne'],
   'api::state.state': ['find', 'findOne'],
   'api::neighborhood.neighborhood': ['find', 'findOne'],
   'api::tag.tag': ['find', 'findOne'],
@@ -89,6 +92,7 @@ const BUSINESS_OWNER_PERMISSIONS = {
   'api::category.category': ['find', 'findOne'],
   'api::city.city': ['find', 'findOne'],
   'api::city-post.city-post': ['find', 'findOne'],
+  'api::creator.creator': ['find', 'findOne'],
   'api::neighborhood.neighborhood': ['find', 'findOne'],
   'api::tag.tag': ['find', 'findOne'],
   'api::photo.photo': ['create', 'update', 'delete', 'find', 'findOne'],

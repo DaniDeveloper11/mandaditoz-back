@@ -1,0 +1,149 @@
+{
+  "kind": "collectionType",
+  "collectionName": "creators",
+  "info": {
+    "singularName": "creator",
+    "pluralName": "creators",
+    "displayName": "Voz del municipio",
+    "description": "Directorio de creadores de la region: influencers, fotografos, cronistas, podcasts y medios locales. Se captura SOLO desde el panel admin, igual que city-post. No confundir con city.bloggerName, que es el unico blog destacado en el menu de la ciudad."
+  },
+  "options": {
+    "draftAndPublish": false
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true,
+      "minLength": 2,
+      "maxLength": 120,
+      "description": "Nombre publico con el que se le conoce"
+    },
+    "slug": {
+      "type": "uid",
+      "targetField": "name",
+      "required": true
+    },
+    "handle": {
+      "type": "string",
+      "maxLength": 60,
+      "description": "Arroba principal SIN la @: 'etzatlanmagico'. Es solo texto para la tarjeta; el enlace real va en socialLinks."
+    },
+    "creatorType": {
+      "type": "enumeration",
+      "enum": [
+        "influencer",
+        "fotografo",
+        "videografo",
+        "podcast",
+        "musico",
+        "cronista",
+        "medio_local",
+        "artista",
+        "gastronomia",
+        "otro"
+      ],
+      "default": "influencer",
+      "required": true
+    },
+    "tagline": {
+      "type": "string",
+      "maxLength": 160,
+      "description": "Una linea para la tarjeta y la meta description: 'Fotografia de fiestas patronales en la region Valles'"
+    },
+    "bio": {
+      "type": "text",
+      "maxLength": 1200
+    },
+    "avatar": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["images"]
+    },
+    "coverImage": {
+      "type": "media",
+      "multiple": false,
+      "required": false,
+      "allowedTypes": ["images"],
+      "description": "Portada de la ficha. Opcional: sin ella la ficha usa un fondo liso."
+    },
+    "gallery": {
+      "type": "media",
+      "multiple": true,
+      "required": false,
+      "allowedTypes": ["images"],
+      "description": "Muestra de su trabajo"
+    },
+    "socialLinks": {
+      "type": "component",
+      "repeatable": true,
+      "component": "business.social-link",
+      "description": "Se reusa el componente de negocios a proposito: mismas plataformas, mismo render. No se duplica un componente igual bajo otro namespace."
+    },
+    "website": {
+      "type": "string",
+      "regex": "^https?:\\/\\/[^\\s]+\\.[^\\s]+$"
+    },
+    "contactEmail": {
+      "type": "email"
+    },
+    "contactPhone": {
+      "type": "string",
+      "maxLength": 20
+    },
+    "audienceText": {
+      "type": "string",
+      "maxLength": 60,
+      "description": "Alcance en texto libre: '12 mil en TikTok'. A proposito NO es un numero: nadie lo va a mantener al dia y un contador desactualizado se nota mas que una frase."
+    },
+    "coversTopics": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "Temas que cubre, separados por coma: 'fiestas patronales, comida, senderismo'"
+    },
+    "regionName": {
+      "type": "string",
+      "maxLength": 80,
+      "description": "Como describe su zona de cobertura en texto: 'Region Valles'. Es solo una etiqueta visible; el filtro real de la seccion es city + visibleInAllCities."
+    },
+    "city": {
+      "type": "relation",
+      "relation": "manyToOne",
+      "target": "api::city.city",
+      "required": true,
+      "description": "Municipio base. UNIDIRECCIONAL a proposito: sin inversa en city no existe ?populate=creators, que se saltaria el controller y expondria los borradores. city-post resuelve lo mismo declarando la inversa con private:true; aqui no hace falta la inversa para nada."
+    },
+    "visibleInAllCities": {
+      "type": "boolean",
+      "default": false,
+      "description": "Si es true aparece en la seccion de cualquier municipio, no solo en su city base. Mismo patron que business.visibleInAllCities y city-post.visibleInAllCities."
+    },
+    "creatorStatus": {
+      "type": "enumeration",
+      "enum": ["draft", "published", "archived"],
+      "default": "draft",
+      "required": true,
+      "description": "El nombre lleva prefijo porque 'status' es reservado en Strapi 5"
+    },
+    "isFeatured": {
+      "type": "boolean",
+      "default": false,
+      "description": "Fija la voz arriba de la seccion"
+    },
+    "featuredOrder": {
+      "type": "integer",
+      "min": 1,
+      "description": "Posicion manual: 1 = primero. Vacio = se ordena por nombre al final de los numerados"
+    },
+    "consentAt": {
+      "type": "datetime",
+      "description": "Cuando el creador dio su permiso para aparecer. La captura es del admin, asi que este campo es el rastro de que la persona acepto: sin el, la ficha no deberia publicarse."
+    },
+    "seo": {
+      "type": "component",
+      "repeatable": false,
+      "component": "shared.seo"
+    }
+  }
+}

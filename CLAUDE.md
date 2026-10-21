@@ -246,6 +246,51 @@ API: `/api/city-posts`. En el panel se llama **Evento o Aviso**.
 
 ---
 
+## Voces del municipio (`creator`)
+
+Directorio de creadores de la región: influencers, fotógrafos, videógrafos, podcasts,
+músicos, cronistas, artistas y medios locales. API: `/api/creators`. En el panel se
+llama **Voz del municipio**.
+
+Es el mismo molde que `city-post` —admin-only, `find`/`findOne` para los tres roles,
+estado con prefijo, `city` + `visibleInAllCities`— con tres diferencias que sí importan:
+
+- **No hay vigencia.** Una voz no caduca, así que no hay `endAt` ni lifecycle: el orden
+  es `isFeatured:desc, featuredOrder:asc, name:asc` y lo respalda el índice parcial
+  `idx_creators_directorio`.
+- **`creatorStatus`** (`draft` | `published` | `archived`) lleva prefijo por lo mismo que
+  `postStatus` y `businessStatus`: `status` es reservado en Strapi 5. El controller lo
+  fuerza a `published` en `find` **sin condición de sesión**, y `findOne` responde 404 si
+  no lo está. Aquí eso pesa más que en la cartelera: un borrador son los datos de una
+  persona real que todavía no ha dado su permiso.
+- **La relación `city` es UNIDIRECCIONAL.** No existe inversa en `city`, a diferencia de
+  `city.cityPosts`, que la tiene marcada `private: true` para que `?populate=cityPosts` no
+  esquive el controller. Sin inversa el agujero directamente no existe, y nada la
+  necesitaba. Ojo al tocar la migración: por ser unidireccional, `creators_city_lnk` **no
+  lleva** columna de orden `creator_ord` ni su índice `_oifk`, que `city_posts_city_lnk`
+  sí tiene.
+
+Otras decisiones del schema:
+
+- **`socialLinks` reusa el componente `business.social-link`**, no uno propio: mismas
+  plataformas y mismo render que la ficha de negocio.
+- **`audienceText` es texto libre** ("12 mil en TikTok"), no un entero de seguidores:
+  nadie va a mantener un contador al día, y uno desactualizado se nota más que una frase.
+- **`coversTopics` es texto separado por comas**, no una taxonomía: no se justifica un
+  árbol de temas para veinte personas. El frontend lo parte para pintar chips.
+- **`consentAt`** es el rastro de que la persona aceptó aparecer. La captura es del admin,
+  así que no hay forma técnica de exigirlo — pero una ficha no debería publicarse sin él.
+- Demo: `node scripts/seed-voces-demo.js` (idempotente por slug; personas **inventadas**,
+  y siembra también un borrador a propósito para comprobar que la API pública no lo
+  devuelve).
+
+Ojo, ya existía un concepto parecido y **no** se tocó: `city.bloggerName` / `blogUrl` /
+`bloggerAvatar` es el ÚNICO blog destacado de cada municipio, y sigue pintándose aparte en
+el menú de `layouts/landing.vue`. Si algún día se unifica, el candidato es marcar esa voz
+con `isFeatured` y borrar los cuatro campos de `city`.
+
+---
+
 ## Rol BusinessOwner
 Rol personalizado creado manualmente en el panel: **Settings → Users & Permissions → Roles → BusinessOwner**
 
