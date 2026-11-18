@@ -133,3 +133,9 @@ dist
 build
 .strapi-updater.json
 .strapi-cloud.json
+
+############################
+# Local dev
+############################
+
+docker-compose.yml
