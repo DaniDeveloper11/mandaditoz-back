@@ -162,4 +162,21 @@ async function findBusinessIdsByText(q) {
   return runSearch(terms, true);
 }
 
-module.exports = { findBusinessIdsByText };
+/**
+ * Ids ordenados por nombre sin acentos ni mayúsculas. `sort=name:asc` de
+ * Strapi ordena por bytes y "Pastelería" (í = 0xC3…) caía después de
+ * "Pasteleria, Gloria" y de toda la "z". Si se pasa `subset`, solo ordena
+ * esos ids (resultado de una búsqueda con `q`).
+ */
+async function orderBusinessIdsByName(direction = 'asc', subset = null) {
+  const dir = direction === 'desc' ? 'desc' : 'asc';
+  const query = strapi.db
+    .connection('businesses')
+    .select('id')
+    .orderByRaw(`${norm('name')} ${dir}, id ${dir}`);
+  if (subset) query.whereIn('id', subset.length ? subset : [-1]);
+  const rows = await query;
+  return rows.map((r) => r.id);
+}
+
+module.exports = { findBusinessIdsByText, orderBusinessIdsByName };

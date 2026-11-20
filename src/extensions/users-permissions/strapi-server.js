@@ -287,7 +287,10 @@ module.exports = (plugin) => {
     return ctx.send(safeUser);
   };
 
-  plugin.routes['content-api'].routes.push({
+  // Al principio de la lista, no al final: la ruta core `PUT /users/:id`
+  // también casa con "/users/me" y, si va antes, gana ella y responde 403
+  // porque ningún rol tiene `user.update`.
+  plugin.routes['content-api'].routes.unshift({
     method: 'PUT',
     path: '/users/me',
     handler: 'user.updateMe',
@@ -297,6 +300,38 @@ module.exports = (plugin) => {
       middlewares: [],
     },
   });
+
+  /**
+   * POST /api/auth/forgot-password envuelto. El original del plugin guarda el
+   * token y LUEGO manda el correo; si el envío falla (Resend caído, API key
+   * inválida) revienta con 500, mientras que un correo inexistente responde
+   * 200. Esa diferencia dice qué correos tienen cuenta. Aquí cualquier fallo
+   * del envío se registra y se responde igual que siempre: `{ ok: true }`.
+   * El token ya quedó guardado, así que el admin puede generar el enlace.
+   */
+  plugin.controllers.user.forgotPasswordSafe = async (ctx) => {
+    const original = strapi.plugin('users-permissions').controller('auth').forgotPassword;
+    try {
+      await original(ctx);
+    } catch (err) {
+      // Los errores de validación (correo mal formado) sí se devuelven.
+      if (err?.name === 'ValidationError') throw err;
+      strapi.log.error(`[auth.forgotPassword] no se pudo enviar el correo: ${err?.message ?? err}`);
+      ctx.status = 200;
+      ctx.body = { ok: true };
+    }
+  };
+
+  const forgotRoute = plugin.routes['content-api'].routes.find(
+    (r) => r.method === 'POST' && r.path === '/auth/forgot-password'
+  );
+  if (forgotRoute) {
+    forgotRoute.handler = 'user.forgotPasswordSafe';
+    // Con otro handler el permiso pasaría a ser `user.forgotPasswordSafe`, que
+    // ningún rol tiene. Es público igual que el original; se conserva su
+    // rateLimit (va en config.middlewares).
+    forgotRoute.config = { ...forgotRoute.config, auth: false };
+  }
 
   /**
    * POST /api/auth/google — inicio de sesión / registro con cuenta de Google.

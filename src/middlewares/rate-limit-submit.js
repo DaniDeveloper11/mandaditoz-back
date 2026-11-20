@@ -10,19 +10,13 @@
 // los hits de las demás rutas protegidas, y el límite más estricto acababa
 // aplicándose a todas.
 
+const { getClientIp } = require('../utils/client-ip');
+
 const buckets = new Map(); // Map<bucketName, Map<ip, number[]>>
 
 const WINDOW_MS = 60 * 60 * 1000;   // 1 hora
 const MAX_REQUESTS = 5;             // máx solicitudes por IP por ventana
 const PRUNE_PROBABILITY = 0.02;     // limpia entradas vencidas ~1 de cada 50 hits
-
-function getClientIp(ctx) {
-  const forwarded = ctx.request.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string' && forwarded.length) {
-    return forwarded.split(',')[0].trim();
-  }
-  return ctx.request.ip || 'unknown';
-}
 
 function bucketFor(name) {
   let bucket = buckets.get(name);

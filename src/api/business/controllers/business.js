@@ -1,27 +1,81 @@
 'use strict';
 const { factories } = require('@strapi/strapi');
 const { getPublishedLimit } = require('../../../utils/publish-limit');
-const { findBusinessIdsByText } = require('../../../utils/business-search');
+const { findBusinessIdsByText, orderBusinessIdsByName } = require('../../../utils/business-search');
+
+// Campos que solo se tocan desde el panel admin (o los escribe el sistema), ni
+// al crear ni al editar por la API:
+// - destacar y verificar es curaduría editorial;
+// - outreach* es la maquinaria del embudo de reclamo: el token es la credencial
+//   que permite adueñarse de la ficha (se generan en scripts/generate-claim-links.js);
+// - ownershipStatus lo mueven los lifecycles de business y claim;
+// - los contadores los recalculan las reseñas y la analítica.
+const ADMIN_ONLY_FIELDS = [
+  'owner',
+  'isFeatured', 'featuredUntil', 'featuredOrder',
+  'isVerified', 'verifiedAt',
+  'createdByAdmin', 'ownershipStatus',
+  'viewCount', 'ratingAverage', 'ratingCount', 'reviewCount',
+  'submitterName', 'submitterEmail', 'submitterPhone', 'termsAcceptedAt',
+  'outreachToken', 'outreachTokenExpiresAt', 'outreachPhone',
+  'lastOutreachAt', 'outreachCount', 'outreachOptOut',
+];
+
+// El dueño solo alterna entre borrador y publicado. `pending_review` y
+// `suspended` son estados de moderación: entrar o salir de ellos es del admin.
+const OWNER_STATUSES = ['draft', 'published'];
+
+function stripAdminOnly(data) {
+  if (!data) return;
+  for (const field of ADMIN_ONLY_FIELDS) delete data[field];
+}
+
+// Ids de los negocios no publicados del usuario: los únicos fuera de
+// `published` que puede leer por la API. Se resuelve a ids y no a un filtro
+// por `owner` porque sanitizeQuery borra los filtros sobre users (el rol no
+// puede leer esa colección) y el filtro desaparecería en silencio.
+async function ownUnpublishedIds(userId) {
+  const rows = await strapi.db.query('api::business.business').findMany({
+    where: { owner: userId, businessStatus: { $ne: 'published' } },
+    select: ['id'],
+  });
+  return rows.map((r) => r.id);
+}
+
+async function isOwnedBy(businessId, userId) {
+  if (!businessId || !userId) return false;
+  const count = await strapi.db.query('api::business.business').count({
+    where: { id: businessId, owner: userId },
+  });
+  return count > 0;
+}
 
 module.exports = factories.createCoreController('api::business.business', ({ strapi }) => ({
   async create(ctx) {
     // Prevención de suplantación: cualquier "owner" enviado por el cliente
     // se descarta. El owner real se inyecta en el lifecycle beforeCreate
     // usando ctx.state.user desde el requestContext.
-    if (ctx.request.body?.data && 'owner' in ctx.request.body.data) {
-      delete ctx.request.body.data.owner;
+    const data = ctx.request.body?.data;
+    stripAdminOnly(data);
+    if (data?.businessStatus && !OWNER_STATUSES.includes(data.businessStatus)) {
+      return ctx.badRequest('Estado inválido');
     }
     return super.create(ctx);
   },
 
   async find(ctx) {
-    // Usuarios no autenticados solo ven negocios publicados
-    if (!ctx.state.user) {
-      ctx.query.filters = {
-        ...ctx.query.filters,
-        businessStatus: 'published',
-      };
-    }
+    // Sin sesión: solo publicados. Con sesión: publicados + los borradores
+    // propios (antes cualquier autenticado veía los de todos). Va dentro de un
+    // $and para que ningún filtro del cliente pueda ampliarlo. Los archivados
+    // no salen para nadie: el dueño los ve por /businesses/mine.
+    const userId = ctx.state.user?.id;
+    const ownIds = userId ? await ownUnpublishedIds(userId) : [];
+    const visibility = ownIds.length
+      ? { $or: [{ businessStatus: 'published' }, { id: { $in: ownIds } }] }
+      : { businessStatus: 'published' };
+    ctx.query.filters = {
+      $and: [ctx.query.filters ?? {}, visibility, { archivedAt: { $null: true } }],
+    };
 
     // Búsqueda de texto sin acentos (ver utils/business-search.js). `q` no es
     // un parámetro de Strapi: se resuelve aquí a un filtro por id y se quita
@@ -32,17 +86,28 @@ module.exports = factories.createCoreController('api::business.business', ({ str
     const byRelevance = ctx.query.sort === 'relevance';
     if (byRelevance) delete ctx.query.sort;
 
+    // `sort=name` se ordena sin acentos (ver orderBusinessIdsByName) y se
+    // pagina por la misma vía que la relevancia.
+    const byName = typeof ctx.query.sort === 'string' && /^name(:(asc|desc))?$/i.test(ctx.query.sort);
+    const nameDir = byName && /:desc$/i.test(ctx.query.sort) ? 'desc' : 'asc';
+    if (byName) delete ctx.query.sort;
+
+    let textIds = null;
     if (ctx.query.q !== undefined) {
-      const ids = await findBusinessIdsByText(ctx.query.q);
+      textIds = await findBusinessIdsByText(ctx.query.q);
       delete ctx.query.q;
-      if (ids) {
+      if (textIds) {
         ctx.query.filters = {
           ...ctx.query.filters,
           // Un $in vacío no es fiable en todas las versiones; -1 no existe.
-          id: { $in: ids.length ? ids : [-1] },
+          id: { $in: textIds.length ? textIds : [-1] },
         };
-        if (byRelevance && ids.length) return this.findByRelevance(ctx, ids);
+        if (byRelevance && textIds.length) return this.findByRelevance(ctx, textIds);
       }
+    }
+    if (byName) {
+      if (textIds && !textIds.length) return super.find(ctx);
+      return this.findByRelevance(ctx, await orderBusinessIdsByName(nameDir, textIds));
     }
     return super.find(ctx);
   },
@@ -84,34 +149,34 @@ module.exports = factories.createCoreController('api::business.business', ({ str
   },
 
   async update(ctx) {
-    // Destacar es curaduría editorial, no una opción del dueño: estos tres
-    // campos solo se tocan desde el panel admin. Mismo criterio que con
-    // "owner" en create.
+    // Mismo criterio que con "owner" en create (ver ADMIN_ONLY_FIELDS).
     const data = ctx.request.body?.data;
-    if (data) {
-      delete data.isFeatured;
-      delete data.featuredUntil;
-      delete data.featuredOrder;
-      // Los campos de outreach son maquinaria interna del embudo de reclamo:
-      // el token es la credencial que permite adueñarse de la ficha, así que
-      // nadie lo escribe desde fuera. Se generan en scripts/generate-claim-links.js.
-      delete data.outreachToken;
-      delete data.outreachTokenExpiresAt;
-      delete data.outreachPhone;
-      delete data.lastOutreachAt;
-      delete data.outreachCount;
-      delete data.outreachOptOut;
+    stripAdminOnly(data);
+    if (data?.businessStatus !== undefined) {
+      if (!OWNER_STATUSES.includes(data.businessStatus)) {
+        return ctx.badRequest('Estado inválido');
+      }
+      // Un negocio suspendido o en revisión no se republica solo: eso
+      // deshacía la suspensión del admin con un PUT.
+      const current = await strapi.db.query('api::business.business').findOne({
+        where: { documentId: ctx.params.id },
+        select: ['businessStatus'],
+      });
+      if (current && !OWNER_STATUSES.includes(current.businessStatus)) {
+        delete data.businessStatus;
+      }
     }
     return super.update(ctx);
   },
 
   async findOne(ctx) {
     const response = await super.findOne(ctx);
-    // Usuarios no autenticados no pueden ver negocios no publicados
-    if (!ctx.state.user && response?.data?.businessStatus !== 'published') {
-      return ctx.notFound();
-    }
-    return response;
+    const entity = response?.data;
+    if (!entity) return response;
+    // Publicado y no archivado: público. Lo demás solo lo ve su dueño.
+    if (entity.businessStatus === 'published' && !entity.archivedAt) return response;
+    if (await isOwnedBy(entity.id, ctx.state.user?.id)) return response;
+    return ctx.notFound();
   },
 
   async submit(ctx) {

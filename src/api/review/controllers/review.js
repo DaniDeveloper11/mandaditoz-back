@@ -1,5 +1,6 @@
 'use strict';
 const { factories } = require('@strapi/strapi');
+const { getClientIp } = require('../../../utils/client-ip');
 
 function extractRelationId(raw) {
   if (raw == null) return null;
@@ -14,12 +15,22 @@ function extractRelationId(raw) {
   return null;
 }
 
-function getClientIp(ctx) {
-  const forwarded = ctx.request.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string' && forwarded.length) {
-    return forwarded.split(',')[0].trim();
+// Fecha de visita: formato yyyy-MM-dd, que exista en el calendario y que no
+// sea futura. Se compara como texto contra "hoy" en la hora del negocio
+// (mismo motivo que utils/is-open.js: el servidor corre en UTC).
+function visitDateError(raw) {
+  if (raw == null || raw === '') return null;
+  const value = String(raw);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return 'Fecha de visita inválida';
+  const d = new Date(`${value}T12:00:00Z`);
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== value) {
+    return 'Fecha de visita inválida';
   }
-  return ctx.request.ip || 'unknown';
+  const today = new Intl.DateTimeFormat('en-CA', {
+    timeZone: process.env.BUSINESS_TIMEZONE || 'America/Mexico_City',
+  }).format(new Date());
+  if (value > today) return 'La fecha de visita no puede ser futura';
+  return null;
 }
 
 // Whitelist de campos escalares que salen por GET /reviews. El find de abajo
@@ -115,6 +126,9 @@ module.exports = factories.createCoreController('api::review.review', ({ strapi 
     delete data.response;
     delete data.editedAt;
 
+    const dateError = visitDateError(data.visitDate);
+    if (dateError) return ctx.badRequest(dateError);
+
     const business = await resolveBusinessRow(data.business);
     if (!business) return ctx.badRequest('Negocio no encontrado');
     if (business.businessStatus !== 'published') {
@@ -146,6 +160,8 @@ module.exports = factories.createCoreController('api::review.review', ({ strapi 
     delete data.isReported;
     delete data.reportCount;
     delete data.response;
+    const dateError = visitDateError(data.visitDate);
+    if (dateError) return ctx.badRequest(dateError);
     ctx.request.body.data = data;
     return super.update(ctx);
   },
@@ -159,16 +175,28 @@ module.exports = factories.createCoreController('api::review.review', ({ strapi 
     const filters = {};
     const business = pickBusinessFilter(query.filters);
     if (business) filters.business = business;
-    if (!ctx.state.user) {
-      filters.reviewStatus = { $eq: 'published' };
+    // Publicadas para todos; con sesión, además las propias que aún no se
+    // publican (para que el autor vea la suya "en revisión"). Antes un usuario
+    // con sesión veía las pending/hidden de cualquiera, incluidas las de
+    // invitados sin moderar.
+    const userId = ctx.state.user?.id;
+    if (userId) {
+      filters.$or = [
+        { reviewStatus: { $eq: 'published' } },
+        { author: { id: userId }, reviewStatus: { $ne: 'removed' } },
+      ];
     } else {
-      filters.reviewStatus = { $ne: 'removed' };
+      filters.reviewStatus = { $eq: 'published' };
     }
 
     // El populate NO se toma del query string (ver SAFE_POPULATE).
     const populate = SAFE_POPULATE;
 
-    const pagination = query.pagination ?? { page: 1, pageSize: 10 };
+    // El Document Service ignora `pagination` en silencio y devolvía todo
+    // (gotcha #7 de CLAUDE.md): se acota con limit/start.
+    const maxLimit = strapi.config.get('api.rest.maxLimit', 100);
+    const pageSize = Math.min(Math.max(parseInt(query.pagination?.pageSize, 10) || 10, 1), maxLimit);
+    const page = Math.max(parseInt(query.pagination?.page, 10) || 1, 1);
     const sort = pickSort(query.sort);
 
     const [entries, total] = await Promise.all([
@@ -177,7 +205,8 @@ module.exports = factories.createCoreController('api::review.review', ({ strapi 
         fields: PUBLIC_REVIEW_FIELDS,
         populate,
         sort,
-        pagination,
+        limit: pageSize,
+        start: (page - 1) * pageSize,
       }),
       strapi.db.query('api::review.review').count({ where: filters }),
     ]);
@@ -189,9 +218,9 @@ module.exports = factories.createCoreController('api::review.review', ({ strapi 
       data: entries,
       meta: {
         pagination: {
-          page: Number(pagination.page ?? 1),
-          pageSize: Number(pagination.pageSize ?? 10),
-          pageCount: Math.ceil(total / Number(pagination.pageSize ?? 10)),
+          page,
+          pageSize,
+          pageCount: Math.ceil(total / pageSize),
           total,
         },
       },
@@ -231,9 +260,8 @@ module.exports = factories.createCoreController('api::review.review', ({ strapi 
     if (comment.length < 10) return ctx.badRequest('La reseña es demasiado corta');
     if (comment.length > 1500) return ctx.badRequest('La reseña es demasiado larga');
     if (title.length > 100) return ctx.badRequest('El título es demasiado largo');
-    if (visitDate && !/^\d{4}-\d{2}-\d{2}$/.test(visitDate)) {
-      return ctx.badRequest('Fecha de visita inválida');
-    }
+    const dateError = visitDateError(visitDate);
+    if (dateError) return ctx.badRequest(dateError);
 
     const photos = Array.isArray(body.photos)
       ? body.photos.map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 6)

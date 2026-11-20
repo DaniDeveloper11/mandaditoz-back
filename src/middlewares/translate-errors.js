@@ -76,6 +76,12 @@ const PATTERNS = [
   [/^(.+) must be one of the following values: (.+)$/i,
     (m) => `"${m[1]}" debe ser uno de: ${m[2]}`],
 
+  // users-permissions — rateLimit de /auth/* (koa2-ratelimit)
+  [/^Too many requests/i, () => 'Demasiados intentos. Espera unos minutos e intenta de nuevo.'],
+
+  // Strapi — formato de fecha (visitDate, etc.)
+  [/^Invalid format, expected (.+)$/i, (m) => `Formato inválido, se esperaba ${m[1]}`],
+
   // Strapi — unique constraint
   [/^This attribute must be unique$/i, () => 'Este valor ya está en uso'],
   [/^(.+) must be unique$/i, (m) => `"${m[1]}" ya está en uso`],

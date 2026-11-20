@@ -37,10 +37,46 @@ async function findByToken(strapi, token) {
   });
 }
 
+// Acepta lo que mande el cliente para la relación: id, documentId o
+// `{ connect: [...] }`.
+async function findBusinessRow(strapi, raw) {
+  let ref = raw;
+  if (ref && typeof ref === 'object') {
+    const first = Array.isArray(ref.connect) ? ref.connect[0] : Array.isArray(ref.set) ? ref.set[0] : ref;
+    ref = first?.documentId ?? first?.id ?? null;
+  }
+  if (ref == null || ref === '') return null;
+  const where = /^\d+$/.test(String(ref)) ? { id: Number(ref) } : { documentId: String(ref) };
+  return strapi.db.query('api::business.business').findOne({ where, populate: { owner: true } });
+}
+
 module.exports = factories.createCoreController('api::claim.claim', ({ strapi }) => ({
   async create(ctx) {
     await this.validateQuery(ctx);
     const sanitizedData = await this.sanitizeInput(ctx.request.body.data, ctx);
+
+    // La revisión es del admin: con `claimStatus: 'approved'` en el body el
+    // reclamo nacía aprobado, y bastaba con que el admin lo guardara sin
+    // cambios para que el afterUpdate entregara el negocio.
+    delete sanitizedData.claimStatus;
+    delete sanitizedData.reviewedAt;
+    delete sanitizedData.reviewedBy;
+    delete sanitizedData.rejectionReason;
+
+    const business = await findBusinessRow(strapi, sanitizedData.business);
+    if (!business) return ctx.badRequest('Negocio no encontrado');
+    // Sin esto se podía "reclamar" un negocio con dueño y pasarlo a
+    // pending_claim, que es lo que lo marca como en disputa.
+    if (business.owner || business.ownershipStatus === 'claimed') {
+      return ctx.badRequest('Este negocio ya tiene dueño.');
+    }
+    const pendiente = await strapi.db.query('api::claim.claim').count({
+      where: { business: business.id, user: ctx.state.user.id, claimStatus: 'pending' },
+    });
+    if (pendiente) {
+      return ctx.conflict('Ya enviaste una solicitud para este negocio. Te avisaremos cuando la revisemos.');
+    }
+    sanitizedData.business = business.id;
 
     const entity = await strapi.documents('api::claim.claim').create({
       data: {
@@ -49,11 +85,13 @@ module.exports = factories.createCoreController('api::claim.claim', ({ strapi })
         // El origen no lo decide el cliente: por esta vía siempre es el
         // formulario de la ficha. Los de invitación los marca redeemInvite.
         claimSource: 'form',
+        claimStatus: 'pending',
       },
       populate: ctx.query?.populate,
     });
 
     const sanitizedResult = await this.sanitizeOutput(entity, ctx);
+    ctx.status = 201;
     return this.transformResponse(sanitizedResult);
   },
 

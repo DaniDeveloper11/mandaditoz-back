@@ -277,7 +277,9 @@ Archivo: `src/api/claim/content-types/claim/lifecycles.js`
 - Asigna el rol `BusinessOwner` al usuario del claim
 - Actualiza el negocio: `owner = user`, `ownershipStatus = "claimed"`
 
-> Nota: si el claim es rechazado (`claimStatus: "rejected"`) o cancelado, el negocio **no** revierte automáticamente a `"unclaimed"` — pendiente de implementar.
+> Al rechazar (`claimStatus: "rejected"`) el negocio vuelve a `"unclaimed"`, y si el dueño puesto es el de ese reclamo (invitación ya canjeada) se le quita. Ver `afterUpdate`.
+>
+> `POST /api/claims` (controller): ignora `claimStatus`, `reviewedAt`, `reviewedBy` y `rejectionReason` del body (nace siempre `pending`), rechaza con 400 un negocio que ya tiene dueño y con 409 un segundo reclamo pendiente del mismo usuario. `GET /api/claims` y `/claims/:id` solo devuelven los reclamos propios: el filtro por `user` se agrega **después** de `sanitizeQuery`, que borra los filtros sobre users.
 
 > Nota: el campo se llama `claimStatus` (no `status`) porque `status` es un nombre reservado en Strapi 5 para el sistema draft/publish del Document Service.
 
@@ -365,7 +367,7 @@ controla el correo ya podía entrar.
 ### Alta nueva por Google
 - `provider: 'google'`, `confirmed: true`, `emailVerified: true`, sin contraseña.
 - Rol **`Authenticated`** aunque venga a publicar un negocio: los roles son niveles
-  acumulativos y el `afterCreate` de `business` lo asciende a `BusinessOwner` al publicar el primero.
+  acumulativos y el `afterCreate` de `business` lo asciende a `BusinessOwner` al crear el primero (aunque sea borrador).
 - `username` se deriva del correo (`usernameDisponible()`) porque nadie lo escribe, y se
   desempata con un sufijo: `juan@gmail.com` y `juan@hotmail.com` chocarían.
 - **`phone` queda vacío.** El alta por correo de comensal lo exige (y lo usa como `username`
@@ -425,7 +427,7 @@ y ese rol sí tenía los permisos de lectura.
 
 | Dónde | Cuándo |
 |---|---|
-| `src/api/business/content-types/business/lifecycles.js` → `afterCreate` | Un comensal publica su primer negocio |
+| `src/api/business/content-types/business/lifecycles.js` → `afterCreate` | Un comensal crea su primer negocio, publicado o en borrador (el frontend crea los horarios justo después y esa ruta ya exige el rol) |
 | `src/api/claim/content-types/claim/lifecycles.js` → `afterUpdate` | El admin aprueba un claim |
 
 > El ascenso en `afterCreate` **debe ser `await`**, no `setImmediate`: el frontend
@@ -500,6 +502,49 @@ silencio y devuelve todo** (440 negocios en local, no 3). La opción válida es 
 Pasa desapercibido porque el script sigue funcionando — solo trae de más.
 
 ---
+
+## Controllers personalizados: sanear entrada y salida
+
+Un controller que llama a `strapi.documents()` / `strapi.db.query()` por su cuenta
+**no** pasa por el sanitizado del core. `private: true` en el schema no protege nada
+ahí, y con `populate` o `filters` del query string se llegaba al user completo
+(hash de password, `resetPasswordToken`) o se usaba un filtro como oráculo.
+Reglas que ya siguen `business.mine`, `review.find`/`respond` y `claim.find`:
+
+- Nunca pasar `ctx.query.populate` tal cual: populate fijo, o `validateQuery` +
+  `sanitizeQuery` y aun así fijo.
+- Filtros y `sort` del cliente: por lista blanca (`review.find`) o saneados.
+- La salida, por `sanitizeOutput`, o con `fields` explícitos en cada relación a users
+  (`SAFE_POPULATE` en `review.js`).
+- Un filtro de seguridad (dueño, usuario) se agrega **después** de `sanitizeQuery`:
+  el sanitizador borra los filtros sobre relaciones que el rol no puede leer
+  (`users`), y metido antes desaparece sin error. En `business.find` se resuelve a
+  ids (`ownUnpublishedIds`) por lo mismo.
+
+### Qué ve cada quien en `/api/businesses`
+- `find`: publicados y no archivados; con sesión, además los borradores propios.
+  Va dentro de un `$and` para que ningún filtro del cliente lo amplíe.
+- `findOne`: lo no publicado o archivado solo lo ve su dueño (404 para los demás).
+- `create`/`update` borran `ADMIN_ONLY_FIELDS` (destacar, verificar, contadores,
+  `ownershipStatus`, `createdByAdmin`, `submitter*`, `outreach*`). El dueño solo
+  alterna `draft` ↔ `published`; `pending_review`/`suspended` son del admin y un
+  negocio en esos estados no se republica por PUT.
+- Un negocio creado con dueño nace `ownershipStatus: 'claimed'` (lifecycle);
+  `007-owned-businesses-claimed.sql` corrigió los que existían como `unclaimed`.
+- `sort=name` se ordena sin acentos (`orderBusinessIdsByName`) y se pagina por la
+  misma vía que `sort=relevance`.
+
+### IP del cliente (`src/utils/client-ip.js`)
+Rate limit de envíos públicos y "una reseña por IP cada 24 h". Se toma la entrada de
+`X-Forwarded-For` que puso el último proxy de confianza, contando
+`TRUSTED_PROXY_COUNT` desde el final (default 1 en producción = Railway; 0 en local =
+IP del socket). La primera entrada la escribe el cliente y se falsificaba con un header.
+Si el API pasa algún día por Cloudflare además de Railway, poner `TRUSTED_PROXY_COUNT=2`.
+
+### `forgot-password`
+La ruta apunta a `user.forgotPasswordSafe`, que envuelve al original: si el envío del
+correo falla responde `{ ok: true }` igual (antes 500 para correos existentes y 200
+para inexistentes: enumeración de cuentas). El fallo queda en el log.
 
 ## Pendiente
 - Verificar que `hasPassword=true` en logs de `register-owner` para confirmar que el password se almacena correctamente.

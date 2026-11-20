@@ -113,6 +113,12 @@ module.exports = {
       }
     }
 
+    // Un negocio que nace con dueño ya está reclamado. Quedaba en `unclaimed`
+    // y la ficha le ofrecía "Reclamar este negocio" a cualquier visitante.
+    if (data.owner && (!data.ownershipStatus || data.ownershipStatus === 'unclaimed')) {
+      data.ownershipStatus = 'claimed';
+    }
+
     if (data?.ownershipStatus === 'claimed' && !data.owner) {
       throw new Error(
         'No se puede crear un negocio con ownershipStatus="claimed" sin owner.'
