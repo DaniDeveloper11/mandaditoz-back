@@ -57,6 +57,43 @@ module.exports = factories.createCoreController('api::claim.claim', ({ strapi })
     return this.transformResponse(sanitizedResult);
   },
 
+  // Un reclamo trae nombre y teléfono de quien lo hace: cada usuario ve solo
+  // los suyos. Los revisa el admin desde el panel, que no pasa por aquí.
+  // El filtro por `user` se agrega DESPUÉS de sanitizeQuery: el sanitizador
+  // quita los filtros sobre relaciones que el rol no puede leer (users), así
+  // que metido en ctx.query desaparecería y se volverían a listar todos.
+  async find(ctx) {
+    const user = ctx.state.user;
+    if (!user) return ctx.unauthorized();
+
+    await this.validateQuery(ctx);
+    const query = await this.sanitizeQuery(ctx);
+    const { results, pagination } = await strapi.service('api::claim.claim').find({
+      ...query,
+      filters: { $and: [query.filters ?? {}, { user: { id: user.id } }] },
+    });
+
+    const sanitizedResults = await this.sanitizeOutput(results, ctx);
+    return this.transformResponse(sanitizedResults, { pagination });
+  },
+
+  async findOne(ctx) {
+    const user = ctx.state.user;
+    if (!user) return ctx.unauthorized();
+
+    await this.validateQuery(ctx);
+    const query = await this.sanitizeQuery(ctx);
+    const entity = await strapi.documents('api::claim.claim').findFirst({
+      fields: query.fields,
+      populate: query.populate,
+      filters: { documentId: ctx.params.id, user: { id: user.id } },
+    });
+    if (!entity) return ctx.notFound();
+
+    const sanitizedResult = await this.sanitizeOutput(entity, ctx);
+    return this.transformResponse(sanitizedResult);
+  },
+
   /**
    * GET /api/claims/invite/:token
    *

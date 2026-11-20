@@ -44,6 +44,46 @@ const PUBLIC_REVIEW_FIELDS = [
   'guestName',
 ];
 
+// Unica forma en que una reseña sale con sus relaciones. Ni `find` ni `respond`
+// pasan por sanitizeOutput, asi que el populate tiene que acotar los campos del
+// user a mano: con `author: true` salian email, phone, el hash de password y los
+// tokens de reset.
+const SAFE_POPULATE = {
+  author: { fields: AUTHOR_PUBLIC_FIELDS, populate: { avatar: true } },
+  photos: true,
+  response: { populate: { respondedBy: { fields: AUTHOR_PUBLIC_FIELDS } } },
+  business: { fields: ['id', 'documentId'] },
+};
+
+const SORTABLE_FIELDS = new Set(['createdAt', 'rating', 'helpfulCount']);
+
+/**
+ * Los filtros del query string tampoco pasan por sanitizeQuery, y cualquier
+ * filtro sobre un campo privado es un oráculo: con
+ * `filters[author][password][$startsWith]=...` el total de resultados delataba
+ * el hash carácter por carácter, sin sesión. Solo se acepta lo que usa el
+ * frontend: filtrar por el negocio.
+ */
+function pickBusinessFilter(raw) {
+  const business = raw?.business;
+  if (!business || typeof business !== 'object') return null;
+  const documentId = business.documentId?.$eq ?? business.documentId;
+  if (typeof documentId === 'string') return { documentId: { $eq: documentId } };
+  const id = business.id?.$eq ?? business.id;
+  if (id != null && /^\d+$/.test(String(id))) return { id: { $eq: Number(id) } };
+  return null;
+}
+
+function pickSort(raw) {
+  const valid = (Array.isArray(raw) ? raw : String(raw ?? '').split(','))
+    .map((s) => String(s).trim())
+    .filter((s) => {
+      const [field, dir = 'asc'] = s.split(':');
+      return SORTABLE_FIELDS.has(field) && ['asc', 'desc'].includes(dir.toLowerCase());
+    });
+  return valid.length ? valid : 'createdAt:desc';
+}
+
 async function resolveBusinessRow(raw) {
   const id = extractRelationId(raw);
   if (!id) return null;
@@ -116,27 +156,20 @@ module.exports = factories.createCoreController('api::review.review', ({ strapi 
 
   async find(ctx) {
     const query = ctx.query ?? {};
-    const filters = { ...(query.filters ?? {}) };
+    const filters = {};
+    const business = pickBusinessFilter(query.filters);
+    if (business) filters.business = business;
     if (!ctx.state.user) {
       filters.reviewStatus = { $eq: 'published' };
     } else {
       filters.reviewStatus = { $ne: 'removed' };
     }
 
-    // El populate NO se toma del query string. Antes se hacia
-    // `query.populate ?? {...}` y bastaba con pedir `populate[author]=true`
-    // para que la API devolviera el user completo — email, phone,
-    // confirmationToken y el hash de password — porque este find no pasa por
-    // sanitizeOutput. Se fuerza siempre esta forma segura.
-    const populate = {
-      author: { fields: AUTHOR_PUBLIC_FIELDS, populate: { avatar: true } },
-      photos: true,
-      response: { populate: { respondedBy: { fields: AUTHOR_PUBLIC_FIELDS } } },
-      business: { fields: ['id', 'documentId'] },
-    };
+    // El populate NO se toma del query string (ver SAFE_POPULATE).
+    const populate = SAFE_POPULATE;
 
     const pagination = query.pagination ?? { page: 1, pageSize: 10 };
-    const sort = query.sort ?? 'createdAt:desc';
+    const sort = pickSort(query.sort);
 
     const [entries, total] = await Promise.all([
       strapi.documents('api::review.review').findMany({
@@ -301,7 +334,8 @@ module.exports = factories.createCoreController('api::review.review', ({ strapi 
           respondedBy: user.id,
         },
       },
-      populate: { author: true, photos: true, response: { populate: ['respondedBy'] } },
+      fields: PUBLIC_REVIEW_FIELDS,
+      populate: SAFE_POPULATE,
     });
     return { data: updated };
   },

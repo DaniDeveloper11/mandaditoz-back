@@ -206,13 +206,18 @@ module.exports = factories.createCoreController('api::business.business', ({ str
     const user = ctx.state.user;
     if (!user) return ctx.unauthorized();
 
-    const { query } = ctx;
+    // El populate NO se toma del query string: con `populate[owner]=true` (o
+    // anidando por city.businesses.owner, claims.user…) esta ruta devolvía el
+    // user completo con el hash de password y los tokens de reset, y el
+    // outreachToken de cualquier negocio. Mismo criterio que review.find.
+    await this.validateQuery(ctx);
+    const query = await this.sanitizeQuery(ctx);
     const results = await strapi.documents('api::business.business').findMany({
       filters: {
         owner: { id: user.id },
         archivedAt: { $null: true },
       },
-      populate: query.populate ?? {
+      populate: {
         category: true,
         city: true,
         logo: true,
@@ -223,6 +228,8 @@ module.exports = factories.createCoreController('api::business.business', ({ str
       sort: query.sort ?? 'updatedAt:desc',
       pagination: query.pagination ?? { pageSize: 100 },
     });
+    // Quita los campos private (outreach*, submitter*) del propio negocio.
+    const sanitizedResults = await this.sanitizeOutput(results, ctx);
 
     const [publishedCount, publishedLimit] = await Promise.all([
       strapi.db.query('api::business.business').count({
@@ -237,7 +244,7 @@ module.exports = factories.createCoreController('api::business.business', ({ str
     ]);
 
     return {
-      data: results,
+      data: sanitizedResults,
       meta: {
         publishedCount,
         publishedLimit,
